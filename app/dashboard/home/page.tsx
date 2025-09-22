@@ -11,7 +11,7 @@ import { tfidfRank } from '@/lib/reco'
 import type { Product as TProduct, Food as TFood, UserProfile } from '@/lib/types'
 import UserNavbar from '@/components/UserNavbar'
 import { motion, type Variants } from "framer-motion";
-import { FiArrowRight, FiStar, FiClock, FiTrendingUp, FiSearch, FiShoppingBag, FiCoffee, FiHeart, FiChevronRight } from 'react-icons/fi'
+import {  FiStar, FiClock, FiTrendingUp, FiShoppingBag, FiCoffee, FiChevronRight } from 'react-icons/fi'
 import { IconContext } from 'react-icons'
 
 type Product = Omit<TProduct, 'id'> & { id: string }
@@ -152,11 +152,7 @@ function Card({
               </div>
             )}
             
-            <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <div className="bg-white rounded-full p-2 shadow-md text-gray-600">
-                <FiHeart size={16} />
-              </div>
-            </div>
+            
           </div>
           <div className="p-4 flex flex-col flex-grow">
             <h3 className="font-semibold text-gray-900 line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">{title}</h3>
@@ -351,7 +347,7 @@ export default function HomePage() {
                     {recoProducts.map((p) => (
                       <Card
                         key={p.id}
-                        href={`/produk/${p.id}`}
+                        href={`/dashboard/produk/${p.id}`}
                         img={p.images?.[0]}
                         overline={(p.category || 'lainnya').toUpperCase()}
                         title={p.name}
@@ -373,7 +369,7 @@ export default function HomePage() {
                     {recoFoods.map((f) => (
                       <Card
                         key={f.id}
-                        href={`/makanan/${f.id}`}
+                        href={`/dashboard/makanan/${f.id}`}
                         img={f.images?.[0]}
                         overline={(f.foodCategory || 'lainnya').toUpperCase()}
                         title={f.name}
