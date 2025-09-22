@@ -1,82 +1,90 @@
 // components/UserNavbar.tsx
-'use client'
-import Link from 'next/link'
-import { useRouter, usePathname } from 'next/navigation'
-import { signOut } from 'firebase/auth'
-import { auth } from '@/lib/firebase'
-import { useSession } from './providers/AuthProvider'
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  FiHome, 
-  FiCoffee, 
-  FiShoppingBag, 
-  FiSettings, 
-  FiLogOut, 
-  FiUser, 
-  FiMenu, 
+"use client";
+
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter, usePathname } from "next/navigation";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { useSession } from "./providers/AuthProvider";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  FiHome,
+  FiCoffee,
+  FiShoppingBag,
+  FiSettings,
+  FiLogOut,
+  FiMenu,
   FiX,
-  FiChevronDown
-} from 'react-icons/fi'
-import { IconType, IconContext } from 'react-icons'
+  FiChevronDown,
+} from "react-icons/fi";
 
 interface NavItem {
   href: string;
   label: string;
-  icon: IconType;
+  icon: React.ComponentType<{ size?: number }>;
 }
 
 export default function UserNavbar() {
-  const { user, profile } = useSession()
-  const router = useRouter()
-  const pathname = usePathname()
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
+  const { user, profile } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
   async function handleLogout() {
-    await signOut(auth)
-    router.push('/login')
+    await signOut(auth);
+    router.push("/login");
   }
 
   const navItems: NavItem[] = [
-    { href: '/dashboard/home', label: 'Home', icon: FiHome },
-    { href: '/dashboard/makanan', label: 'Makanan', icon: FiCoffee },
-    { href: '/dashboard/produk', label: 'Produk', icon: FiShoppingBag },
-  ]
+    { href: "/dashboard/home", label: "Home", icon: FiHome },
+    { href: "/dashboard/makanan", label: "Makanan", icon: FiCoffee },
+    { href: "/dashboard/produk", label: "Produk", icon: FiShoppingBag },
+  ];
 
-  const isActive = (path: string) => pathname === path
+  const isActive = (path: string) => pathname === path;
 
   return (
-    <nav className="w-full bg-white shadow-lg border-b border-gray-100 px-4 sm:px-6 lg:px-8 py-4">
+    <nav className="w-full bg-white shadow-lg border-b border-gray-100 px-8 sm:px-10 lg:px-24 py-4">
       <div className="flex justify-between items-center">
         {/* Logo/Brand */}
         <Link href="/dashboard/home" className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">EK</span>
+          <div className="w-30 h-20 rounded-lg flex items-center justify-center overflow-hidden">
+            <Image
+              src="/images/LADUNIMART.png"
+              alt="Logo LADUNIMART"
+              width={300}
+              height={300}
+              className="w-30 h-300 object-contain"
+              priority
+            />
           </div>
-          <span className="font-bold text-gray-900 text-xl hidden sm:block">E-Katalog</span>
+          
         </Link>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center space-x-1">
-          {navItems.map((item) => {
-            const Icon = item.icon
+          {navItems.map(({ href, label, icon: Icon }) => {
+            const active = isActive(href);
             return (
               <Link
-                key={item.href}
-                href={item.href}
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
                 className={`flex items-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  isActive(item.href)
-                    ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                    : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                  active
+                    ? "bg-blue-50 text-blue-700 border border-blue-100"
+                    : "text-gray-600 hover:text-blue-600 hover:bg-gray-50"
                 }`}
               >
-                <IconContext.Provider value={{ className: "w-4 h-4 mr-2" }}>
-                  <Icon />
-                </IconContext.Provider>
-                {item.label}
+                <span className="mr-2 inline-flex h-4 w-4 items-center justify-center">
+                  <Icon size={16} />
+                </span>
+                {label}
               </Link>
-            )
+            );
           })}
         </div>
 
@@ -86,23 +94,28 @@ export default function UserNavbar() {
           <div className="hidden md:flex items-center space-x-4">
             <div className="relative">
               <button
-                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                onClick={() => setIsProfileDropdownOpen((s) => !s)}
                 className="flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors"
+                aria-haspopup="menu"
+                aria-expanded={isProfileDropdownOpen}
               >
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                  {profile?.displayName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+                  {profile?.displayName?.[0]?.toUpperCase() ||
+                    user?.email?.[0]?.toUpperCase() ||
+                    "U"}
                 </div>
                 <div className="text-left">
                   <div className="text-sm font-medium text-gray-900">
-                    {profile?.displayName || user?.email?.split('@')[0]}
+                    {profile?.displayName || user?.email?.split("@")[0]}
                   </div>
-                  <div className="text-xs text-gray-500">
-                    {profile?.role || 'user'}
-                  </div>
+                  <div className="text-xs text-gray-500">{profile?.role || "user"}</div>
                 </div>
-                <IconContext.Provider value={{ className: `w-4 h-4 text-gray-400 transition-transform ${isProfileDropdownOpen ? 'rotate-180' : ''}` }}>
-                  <FiChevronDown />
-                </IconContext.Provider>
+                <span
+  className={`text-gray-400 inline-flex transition-transform ${isProfileDropdownOpen ? 'rotate-180' : ''}`}
+>
+  <FiChevronDown size={16} />
+</span>
+
               </button>
 
               {/* Profile Dropdown */}
@@ -113,24 +126,25 @@ export default function UserNavbar() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50"
+                    role="menu"
                   >
                     <Link
-                      href={`/dashboard/${user?.uid}`}
+                      href={`/dashboard/${user?.uid ?? ""}`}
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                       onClick={() => setIsProfileDropdownOpen(false)}
                     >
-                      <IconContext.Provider value={{ className: "w-4 h-4 mr-2" }}>
-                        <FiSettings />
-                      </IconContext.Provider>
+                      <span className="mr-2 inline-flex h-4 w-4 items-center justify-center">
+                        <FiSettings size={16} />
+                      </span>
                       Pengaturan
                     </Link>
                     <button
                       onClick={handleLogout}
                       className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                     >
-                      <IconContext.Provider value={{ className: "w-4 h-4 mr-2" }}>
-                        <FiLogOut />
-                      </IconContext.Provider>
+                      <span className="mr-2 inline-flex h-4 w-4 items-center justify-center">
+                        <FiLogOut size={16} />
+                      </span>
                       Logout
                     </button>
                   </motion.div>
@@ -141,12 +155,12 @@ export default function UserNavbar() {
 
           {/* Mobile Menu Button */}
           <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            onClick={() => setIsMobileMenuOpen((s) => !s)}
             className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            aria-label="Toggle menu"
+            aria-expanded={isMobileMenuOpen}
           >
-            <IconContext.Provider value={{ className: "w-6 h-6" }}>
-              {isMobileMenuOpen ? <FiX /> : <FiMenu />}
-            </IconContext.Provider>
+            {isMobileMenuOpen ? <FiX size={24} /> : <FiMenu size={24} />}
           </button>
         </div>
       </div>
@@ -156,28 +170,31 @@ export default function UserNavbar() {
         {isMobileMenuOpen && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
+            animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             className="md:hidden mt-4 border-t border-gray-100 pt-4"
           >
             <div className="space-y-2">
-              {navItems.map((item) => {
-                const Icon = item.icon
+              {navItems.map(({ href, label, icon: Icon }) => {
+                const active = isActive(href);
                 return (
                   <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                      isActive(item.href)
-                    }`}
+                    key={href}
+                    href={href}
                     onClick={() => setIsMobileMenuOpen(false)}
+                    aria-current={active ? "page" : undefined}
+                    className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                      active
+                        ? "bg-blue-50 text-blue-700 ring-1 ring-blue-100"
+                        : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                    }`}
                   >
-                    <IconContext.Provider value={{ className: "w-5 h-5 mr-3" }}>
-                      <Icon />
-                    </IconContext.Provider>
-                    {item.label}
+                    <span className="mr-3 inline-flex h-5 w-5 items-center justify-center">
+                      <Icon size={20} />
+                    </span>
+                    {label}
                   </Link>
-                )
+                );
               })}
 
               {/* Mobile User Info */}
@@ -185,15 +202,15 @@ export default function UserNavbar() {
                 <div className="border-t border-gray-100 pt-4 mt-4 space-y-2">
                   <div className="flex items-center px-4">
                     <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold mr-3">
-                      {profile?.displayName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
+                      {profile?.displayName?.[0]?.toUpperCase() ||
+                        user.email?.[0]?.toUpperCase() ||
+                        "U"}
                     </div>
                     <div className="flex-1">
                       <div className="text-sm font-medium text-gray-900">
-                        {profile?.displayName || user.email?.split('@')[0]}
+                        {profile?.displayName || user.email?.split("@")[0]}
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {profile?.role || 'user'}
-                      </div>
+                      <div className="text-xs text-gray-500">{profile?.role || "user"}</div>
                     </div>
                   </div>
                   <Link
@@ -201,9 +218,9 @@ export default function UserNavbar() {
                     className="flex items-center px-4 py-3 text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-xl"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    <IconContext.Provider value={{ className: "w-5 h-5 mr-3" }}>
-                      <FiSettings />
-                    </IconContext.Provider>
+                    <span className="mr-3 inline-flex h-5 w-5 items-center justify-center">
+                      <FiSettings size={20} />
+                    </span>
                     Pengaturan
                   </Link>
 
@@ -211,9 +228,9 @@ export default function UserNavbar() {
                     onClick={handleLogout}
                     className="flex items-center w-full px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl"
                   >
-                    <IconContext.Provider value={{ className: "w-5 h-5 mr-3" }}>
-                      <FiLogOut />
-                    </IconContext.Provider>
+                    <span className="mr-3 inline-flex h-5 w-5 items-center justify-center">
+                      <FiLogOut size={20} />
+                    </span>
                     Logout
                   </button>
                 </div>
@@ -236,5 +253,5 @@ export default function UserNavbar() {
         )}
       </AnimatePresence>
     </nav>
-  )
+  );
 }

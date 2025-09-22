@@ -1,69 +1,76 @@
 // app/survey/page.tsx
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useSession } from '@/components/providers/AuthProvider'
-import { db } from '@/lib/firebase'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
-import type { UserProfile } from '@/lib/types'
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "@/components/providers/AuthProvider";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import type { UserProfile } from "@/lib/types";
+import { motion } from "framer-motion";
 
-const PRODUCT_CATS = ['pakaian', 'aksesoris', 'elektronik', 'kecantikan', 'rumah tangga', 'lainnya']
-const FOOD_CATS = ['makanan ringan', 'makanan berat', 'minuman', 'dessert', 'lainnya']
+const PRODUCT_CATS = ["pakaian", "aksesoris", "elektronik", "kecantikan", "rumah tangga", "lainnya"];
+const FOOD_CATS = ["makanan ringan", "makanan berat", "minuman", "dessert", "lainnya"];
 
 export default function SurveyPage() {
   const { user, profile } = useSession() as {
-    user: { uid: string } | null
-    profile: UserProfile | null
-  }
-  const router = useRouter()
-  const sp = useSearchParams()
-  const next = sp.get('next') || '/dashboard/home'
+    user: { uid: string } | null;
+    profile: UserProfile | null;
+  };
 
-  const [productCats, setProductCats] = useState<string[]>([])
-  const [foodCats, setFoodCats] = useState<string[]>([])
-  const [keywords, setKeywords] = useState('')
-  const [saving, setSaving] = useState(false)
+  const router = useRouter();
+  const sp = useSearchParams();
+  const next = sp.get("next") || "/dashboard/home";
+
+  const [productCats, setProductCats] = useState<string[]>([]);
+  const [foodCats, setFoodCats] = useState<string[]>([]);
+  const [keywords, setKeywords] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Jika belum login, arahkan ke login (opsional)
+  useEffect(() => {
+    if (user === null) router.replace(`/login?next=${encodeURIComponent("/survey")}`);
+  }, [user, router]);
 
   // Jika sudah pernah isi survey, langsung lempar ke next
   useEffect(() => {
     if (profile?.surveyCompleted) {
-      router.replace(next)
+      router.replace(next);
     }
-  }, [profile?.surveyCompleted, next, router])
+  }, [profile?.surveyCompleted, next, router]);
 
   // Load preferensi awal bila ada
   useEffect(() => {
-    const uid = user?.uid
-    if (!uid) return
-    async function load(u: string) {
-      const ref = doc(db, 'users', u)
-      const snap = await getDoc(ref)
-      const data = (snap.data() as any) || {}
-      setProductCats(data.preferences?.productCategories || [])
-      setFoodCats(data.preferences?.foodCategories || [])
-      setKeywords((data.preferences?.likedKeywords || []).join(', '))
-    }
-    load(uid)
-  }, [user?.uid])
+    const uid = user?.uid;
+    if (!uid) return;
+
+    (async () => {
+      const ref = doc(db, "users", uid);
+      const snap = await getDoc(ref);
+      const data = (snap.data() as any) || {};
+      setProductCats(data.preferences?.productCategories || []);
+      setFoodCats(data.preferences?.foodCategories || []);
+      setKeywords((data.preferences?.likedKeywords || []).join(", "));
+    })();
+  }, [user?.uid]);
 
   function toggle(arr: string[], v: string, setArr: (a: string[]) => void) {
-    if (arr.includes(v)) setArr(arr.filter((x) => x !== v))
-    else setArr([...arr, v])
+    if (arr.includes(v)) setArr(arr.filter((x) => x !== v));
+    else setArr([...arr, v]);
   }
 
   async function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const uid = user?.uid
-    if (!uid) return
+    e.preventDefault();
+    const uid = user?.uid;
+    if (!uid) return;
 
-    setSaving(true)
+    setSaving(true);
     try {
-      const ref = doc(db, 'users', uid)
+      const ref = doc(db, "users", uid);
       const liked = keywords
         .split(/[,\s]+/)
         .map((s) => s.trim())
-        .filter(Boolean)
+        .filter(Boolean);
 
       const payload = {
         preferences: {
@@ -72,93 +79,139 @@ export default function SurveyPage() {
           likedKeywords: liked,
         },
         surveyCompleted: true,
-        updatedAt: Date.now(),
-      }
+        updatedAt: serverTimestamp(), // konsisten dengan Firestore
+      };
 
-      await setDoc(ref, payload, { merge: true })
+      await setDoc(ref, payload, { merge: true });
 
-      // ✅ simpan flag bypass & tokens agar rekomendasi langsung jalan,
-      //    dan gate dashboard tidak mendorong balik ke /survey di navigasi berikutnya
-      if (typeof window !== 'undefined') {
+      // Cache ringan di sessionStorage untuk UX cepat
+      if (typeof window !== "undefined") {
         const tokens = [...productCats, ...foodCats, ...liked]
           .map((t) => t.toLowerCase())
-          .filter(Boolean)
-        sessionStorage.setItem('surveyDone', '1')                 // bypass ProtectedRoute sementara
-        sessionStorage.setItem('prefsTokens', JSON.stringify(tokens)) // rekomendasi awal
+          .filter(Boolean);
+        sessionStorage.setItem("surveyDone", "1");
+        sessionStorage.setItem("prefsTokens", JSON.stringify(tokens));
       }
 
-      // (opsional) kalau AuthProvider punya setter, bisa optimistic update:
-      // setProfile?.(prev => prev ? {
-      //   ...prev,
-      //   surveyCompleted: true,
-      //   preferences: payload.preferences,
-      //   updatedAt: Date.now(),
-      // } : prev)
-
-      // langsung ke dashboard home
-      router.replace('/dashboard/home')
+      router.replace(next);
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   return (
-    <main className="p-6 max-w-3xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Preferensi Anda</h1>
-      <p className="text-gray-600">Isi sebentar ya—biar rekomendasi pas selera.</p>
+    <main className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-white via-blue-50 to-orange-50">
+      {/* aksen lembut */}
+      <div className="pointer-events-none absolute -top-24 left-1/2 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-blue-200/30 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 right-10 h-[320px] w-[320px] rounded-full bg-orange-200/30 blur-3xl" />
 
-      <form onSubmit={onSubmit} className="space-y-6 bg-white p-4 rounded-2xl shadow">
-        <section>
-          <h2 className="font-semibold mb-2">Kategori Produk Favorit</h2>
-          <div className="flex flex-wrap gap-2">
-            {PRODUCT_CATS.map((c) => (
-              <button
-                type="button"
-                key={c}
-                onClick={() => toggle(productCats, c, setProductCats)}
-                className={`px-3 py-1 rounded border ${
-                  productCats.includes(c) ? 'bg-black text-white' : 'bg-white'
-                }`}
-              >
-                {c}
-              </button>
-            ))}
+      <div className="relative z-10 mx-auto max-w-3xl px-4 py-10">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="rounded-3xl p-[1.5px] bg-gradient-to-r from-blue-500/60 via-blue-500/20 to-orange-500/60 shadow-2xl"
+        >
+          <div className="rounded-[calc(1.5rem-1.5px)] border border-white/60 bg-white/85 backdrop-blur-lg">
+            <div className="space-y-6 p-6 sm:p-8">
+              {/* Header */}
+              <div>
+                <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Preferensi Anda</h1>
+                <p className="text-slate-600">Isi sebentar ya — biar rekomendasi pas selera.</p>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={onSubmit} className="space-y-8">
+                {/* Produk */}
+                <section>
+                  <h2 className="mb-2 font-semibold text-slate-900">Kategori Produk Favorit</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {PRODUCT_CATS.map((c) => {
+                      const active = productCats.includes(c);
+                      return (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => toggle(productCats, c, setProductCats)}
+                          className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                            active
+                              ? "border-transparent bg-gradient-to-r from-blue-600 to-orange-500 text-white shadow"
+                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                          aria-pressed={active}
+                        >
+                          {c}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                {/* Makanan */}
+                <section>
+                  <h2 className="mb-2 font-semibold text-slate-900">Kategori Makanan Favorit</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {FOOD_CATS.map((c) => {
+                      const active = foodCats.includes(c);
+                      return (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => toggle(foodCats, c, setFoodCats)}
+                          className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                            active
+                              ? "border-transparent bg-gradient-to-r from-blue-600 to-orange-500 text-white shadow"
+                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                          aria-pressed={active}
+                        >
+                          {c}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                {/* Kata kunci */}
+                <section>
+                  <h2 className="mb-2 font-semibold text-slate-900">Kata Kunci yang Anda Suka</h2>
+                  <div className="rounded-xl border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-blue-400/60">
+                    <input
+                      className="w-full rounded-xl bg-transparent px-3 py-2.5 text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                      placeholder="contoh: manis, pedas, kopi, sepatu, skincare"
+                      value={keywords}
+                      onChange={(e) => setKeywords(e.target.value)}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">Pisahkan dengan spasi atau koma.</p>
+                </section>
+
+                {/* CTA */}
+                <div className="flex items-center justify-end">
+                  <button
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <svg
+                        className="h-4 w-4 animate-spin"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden
+                      >
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                    ) : null}
+                    {saving ? "Menyimpan…" : "Simpan & Lanjutkan"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </section>
-
-        <section>
-          <h2 className="font-semibold mb-2">Kategori Makanan Favorit</h2>
-          <div className="flex flex-wrap gap-2">
-            {FOOD_CATS.map((c) => (
-              <button
-                type="button"
-                key={c}
-                onClick={() => toggle(foodCats, c, setFoodCats)}
-                className={`px-3 py-1 rounded border ${
-                  foodCats.includes(c) ? 'bg-black text-white' : 'bg-white'
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <h2 className="font-semibold mb-2">Kata Kunci yang Anda Suka</h2>
-          <input
-            className="w-full border p-2 rounded"
-            placeholder="contoh: manis, pedas, kopi, sepatu, skincare"
-            value={keywords}
-            onChange={(e) => setKeywords(e.target.value)}
-          />
-          <p className="text-xs text-gray-500 mt-1">Pisahkan dengan spasi atau koma.</p>
-        </section>
-
-        <button className="px-4 py-2 bg-black text-white rounded disabled:opacity-50" disabled={saving}>
-          {saving ? 'Menyimpan…' : 'Simpan & Lanjutkan'}
-        </button>
-      </form>
+        </motion.div>
+      </div>
     </main>
-  )
+  );
 }

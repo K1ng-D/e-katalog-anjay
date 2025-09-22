@@ -594,15 +594,7 @@ export default function UsersAdminPage() {
                               </>
                             ) : (
                               <>
-                                <motion.button
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
-                                  onClick={() => sendReset(it.email)}
-                                  className="p-1.5 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors"
-                                  title="Reset Password"
-                                >
-                                  <FiKey size={14} />
-                                </motion.button>
+                               
                                 <motion.button
                                   whileHover={{ scale: 1.05 }}
                                   whileTap={{ scale: 0.95 }}

@@ -293,7 +293,7 @@ export default function HomePage() {
         <div className="relative bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white overflow-hidden">
           <div className="absolute inset-0 bg-black/10 z-0"></div>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24 relative z-10">
-            <div className="grid md:grid-cols-2 gap-10 items-center">
+            <div className="grid md:grid-cols-1 gap-10 items-center">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -307,22 +307,7 @@ export default function HomePage() {
                   </p>
            
               </motion.div>
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.7, delay: 0.2 }}
-                className="hidden md:block"
-              >
-                <div className="grid grid-cols-2 gap-4">
-                  {[0, 1, 2, 3].map((i) => (
-                    <div key={i} className={`bg-white/20 backdrop-blur-sm rounded-2xl p-4 aspect-square flex items-center justify-center ${i % 2 === 0 ? 'rotate-3' : '-rotate-3'}`}>
-                      <div className="text-4xl">
-                        {i % 2 === 0 ? '🛒' : '🍕'}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
+              
             </div>
           </div>
         </div>
@@ -493,13 +478,13 @@ export default function HomePage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link 
-                href="/produk" 
+                href="/dashboard/produk" 
                 className="bg-white text-blue-600 hover:bg-gray-100 font-semibold py-3 px-8 rounded-xl transition-colors shadow-lg flex items-center justify-center"
               >
                 Lihat Semua Produk <span className="ml-2"><FiChevronRight /></span>
               </Link>
               <Link 
-                href="/makanan" 
+                href="/dashboard/makanan" 
                 className="bg-yellow-400 text-gray-900 hover:bg-yellow-500 font-semibold py-3 px-8 rounded-xl transition-colors shadow-lg flex items-center justify-center"
               >
                 Lihat Semua Makanan <span className="ml-2"><FiChevronRight /></span>
@@ -521,10 +506,9 @@ export default function HomePage() {
               <div>
                 <h4 className="text-lg font-semibold mb-4">Tautan Cepat</h4>
                 <ul className="space-y-2">
-                  <li><Link href="/produk" className="text-gray-400 hover:text-white transition-colors">Produk</Link></li>
-                  <li><Link href="/makanan" className="text-gray-400 hover:text-white transition-colors">Makanan</Link></li>
-                  <li><Link href="/tentang" className="text-gray-400 hover:text-white transition-colors">Tentang Kami</Link></li>
-                  <li><Link href="/bantuan" className="text-gray-400 hover:text-white transition-colors">Bantuan</Link></li>
+                  <li><Link href="/dashboard/produk" className="text-gray-400 hover:text-white transition-colors">Produk</Link></li>
+                  <li><Link href="/dashboard/makanan" className="text-gray-400 hover:text-white transition-colors">Makanan</Link></li>
+             
                 </ul>
               </div>
               <div>
@@ -534,7 +518,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-              <p>© {new Date().getFullYear()} E-Katalog. All rights reserved.</p>
+              <p>© {new Date().getFullYear()} LADUNIMART. All rights reserved.</p>
             </div>
           </div>
         </footer>
