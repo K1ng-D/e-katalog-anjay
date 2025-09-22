@@ -344,7 +344,7 @@ export default function HomePage() {
                 <Section 
                   title="Rekomendasi Produk" 
                   icon={FiStar} 
-                  viewAllLink="/produk"
+             
                   description="Berdasarkan preferensi dan riwayat pencarian Anda"
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -366,7 +366,7 @@ export default function HomePage() {
                 <Section 
                   title="Rekomendasi Makanan" 
                   icon={FiStar} 
-                  viewAllLink="/makanan"
+        
                   description="Menu pilihan yang mungkin Anda sukai"
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -397,7 +397,7 @@ export default function HomePage() {
               <Section 
                 title="Produk Terbaru" 
                 icon={FiClock} 
-                viewAllLink="/produk"
+                viewAllLink="/dashboard/produk"
                 description="Produk baru yang baru saja ditambahkan"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -416,7 +416,7 @@ export default function HomePage() {
                   ) : (
                     <div className="col-span-full text-center py-16">
                       <div className="text-gray-400 text-lg">Belum ada produk tersedia.</div>
-                      <Link href="/produk" className="inline-block mt-4 text-blue-600 hover:text-blue-800 font-medium">
+                      <Link href="/dashboard/produk" className="inline-block mt-4 text-blue-600 hover:text-blue-800 font-medium">
                         Jelajahi semua produk
                       </Link>
                     </div>
