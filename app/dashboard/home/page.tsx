@@ -401,7 +401,7 @@ export default function HomePage() {
                     latestProducts.map((p) => (
                       <Card
                         key={p.id}
-                        href={`/produk/${p.id}`}
+                        href={`/dashboard/produk/${p.id}`}
                         img={p.images?.[0]}
                         overline={(p.category || 'lainnya').toUpperCase()}
                         title={p.name}
@@ -433,7 +433,7 @@ export default function HomePage() {
               <Section 
                 title="Makanan Terbaru" 
                 icon={FiTrendingUp} 
-                viewAllLink="/makanan"
+                viewAllLink="/dashboard/makanan"
                 description="Menu terbaru yang siap memanjakan lidah Anda"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -441,7 +441,7 @@ export default function HomePage() {
                     latestFoods.map((f) => (
                       <Card
                         key={f.id}
-                        href={`/makanan/${f.id}`}
+                        href={`/dashboard/makanan/${f.id}`}
                         img={f.images?.[0]}
                         overline={(f.foodCategory || 'lainnya').toUpperCase()}
                         title={f.name}
@@ -452,7 +452,7 @@ export default function HomePage() {
                   ) : (
                     <div className="col-span-full text-center py-16">
                       <div className="text-gray-400 text-lg">Belum ada makanan tersedia.</div>
-                      <Link href="/makanan" className="inline-block mt-4 text-blue-600 hover:text-blue-800 font-medium">
+                      <Link href="/dashboard/makanan" className="inline-block mt-4 text-blue-600 hover:text-blue-800 font-medium">
                         Jelajahi semua makanan
                       </Link>
                     </div>
