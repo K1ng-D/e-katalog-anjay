@@ -27,7 +27,6 @@ import {
   FiCalendar,
   FiDollarSign,
   FiPackage,
-  FiPieChart
 } from 'react-icons/fi'
 import type { IconType } from 'react-icons'
 

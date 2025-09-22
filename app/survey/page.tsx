@@ -1,7 +1,7 @@
 // app/survey/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "@/components/providers/AuthProvider";
 import { db } from "@/lib/firebase";
@@ -12,7 +12,8 @@ import { motion } from "framer-motion";
 const PRODUCT_CATS = ["pakaian", "aksesoris", "elektronik", "kecantikan", "rumah tangga", "lainnya"];
 const FOOD_CATS = ["makanan ringan", "makanan berat", "minuman", "dessert", "lainnya"];
 
-export default function SurveyPage() {
+// --- Komponen yang pakai useSearchParams dibungkus Suspense ---
+function SurveyContent() {
   const { user, profile } = useSession() as {
     user: { uid: string } | null;
     profile: UserProfile | null;
@@ -20,19 +21,19 @@ export default function SurveyPage() {
 
   const router = useRouter();
   const sp = useSearchParams();
-  const next = sp.get("next") || "/dashboard/home";
+  const next = useMemo(() => sp.get("next") || "/dashboard/home", [sp]);
 
   const [productCats, setProductCats] = useState<string[]>([]);
   const [foodCats, setFoodCats] = useState<string[]>([]);
   const [keywords, setKeywords] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Jika belum login, arahkan ke login (opsional)
+  // Opsional: jika belum login, arahkan ke login
   useEffect(() => {
     if (user === null) router.replace(`/login?next=${encodeURIComponent("/survey")}`);
   }, [user, router]);
 
-  // Jika sudah pernah isi survey, langsung lempar ke next
+  // Jika sudah pernah isi survey, langsung ke next
   useEffect(() => {
     if (profile?.surveyCompleted) {
       router.replace(next);
@@ -79,12 +80,11 @@ export default function SurveyPage() {
           likedKeywords: liked,
         },
         surveyCompleted: true,
-        updatedAt: serverTimestamp(), // konsisten dengan Firestore
+        updatedAt: serverTimestamp(),
       };
 
       await setDoc(ref, payload, { merge: true });
 
-      // Cache ringan di sessionStorage untuk UX cepat
       if (typeof window !== "undefined") {
         const tokens = [...productCats, ...foodCats, ...liked]
           .map((t) => t.toLowerCase())
@@ -213,5 +213,21 @@ export default function SurveyPage() {
         </motion.div>
       </div>
     </main>
+  );
+}
+
+// --- Wrapper dengan Suspense (WAJIB untuk useSearchParams) ---
+export default function SurveyPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="p-6 max-w-3xl mx-auto">
+          <div className="h-7 w-48 bg-gray-200 rounded animate-pulse mb-3" />
+          <div className="h-4 w-64 bg-gray-100 rounded animate-pulse" />
+        </main>
+      }
+    >
+      <SurveyContent />
+    </Suspense>
   );
 }

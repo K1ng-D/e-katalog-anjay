@@ -7,7 +7,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute'
 import UserNavbar from '@/components/UserNavbar'
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { FiSearch, FiFilter, FiCoffee } from 'react-icons/fi'
 import { IconContext } from 'react-icons'
 
@@ -24,21 +24,35 @@ type Food = {
   updatedAt?: number
 }
 
-// Animations
-const containerVariants = {
+// Animation variants (with proper typing)
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
-}
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 },
+  },
+};
 
-const itemVariants = {
-  hidden: { y: 18, opacity: 0 },
-  visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 110, damping: 16 } },
-}
+const itemVariants: Variants = {
+  hidden: { y: 30, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      type: "spring" as const, // <— penting supaya bukan string biasa
+      stiffness: 100,
+      damping: 15,
+    },
+  },
+};
 
-const fadeIn = {
+const fadeIn: Variants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.35 } },
-}
+  visible: {
+    opacity: 1,
+    transition: { duration: 0.5 },
+  },
+};
 
 // Skeleton Loader
 function FoodCardSkeleton() {

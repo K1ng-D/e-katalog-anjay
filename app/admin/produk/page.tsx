@@ -1,8 +1,9 @@
-'use client'
+// app/admin/produk/page.tsx
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { ProtectedRoute } from '@/components/ProtectedRoute'
-import AdminSidebar from '@/components/AdminSidebar'
+import { useEffect, useMemo, useState } from "react";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import AdminSidebar from "@/components/AdminSidebar";
 import {
   addDoc,
   collection,
@@ -12,125 +13,123 @@ import {
   orderBy,
   query,
   updateDoc,
-} from 'firebase/firestore'
-import { db } from '@/lib/firebase'
-import type { Product } from '@/lib/types'
-import CloudinaryUploadApiMulti from '@/components/CloudinaryMultiUpload'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  FiPackage, 
-  FiDollarSign, 
-  FiBox, 
-  FiImage, 
-  FiLink, 
-  FiEdit, 
-  FiTrash2, 
-  FiSave, 
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import type { Product } from "@/lib/types";
+import CloudinaryUploadApiMulti from "@/components/CloudinaryMultiUpload";
+import { motion } from "framer-motion";
+import {
+  FiPackage,
+  FiDollarSign,
+  FiBox,
+  FiImage,
+  FiLink,
+  FiEdit,
+  FiTrash2,
+  FiSave,
   FiX,
-  FiPlus,
   FiShoppingBag,
   FiTag,
   FiFileText,
   FiGrid,
   FiCheckCircle,
-  FiAlertCircle
-} from 'react-icons/fi'
+} from "react-icons/fi";
 
 // Utilities: hilangkan semua undefined sebelum dikirim ke Firestore
 function stripUndefined<T>(obj: T): T {
   if (Array.isArray(obj)) {
     return obj
       .filter((v) => v !== undefined)
-      .map((v) => (v && typeof v === 'object' ? stripUndefined(v as any) : v)) as any
+      .map((v) => (v && typeof v === "object" ? stripUndefined(v as any) : v)) as any;
   }
-  if (obj && typeof obj === 'object') {
-    const out: any = {}
+  if (obj && typeof obj === "object") {
+    const out: any = {};
     for (const [k, v] of Object.entries(obj as any)) {
-      if (v === undefined) continue
-      out[k] = v && typeof v === 'object' ? stripUndefined(v as any) : v
+      if (v === undefined) continue;
+      out[k] = v && typeof v === "object" ? stripUndefined(v as any) : v;
     }
-    return out
+    return out;
   }
-  return obj
+  return obj;
 }
 
 const initialForm: Product = {
-  name: '',
-  category: 'lainnya',
-  description: '',
+  name: "",
+  category: "lainnya",
+  description: "",
   price: 0,
   images: [],
-  links: { whatsapp: '', shopee: '', tokopedia: '', website: '' },
+  links: { whatsapp: "", shopee: "", tokopedia: "", website: "" },
   stock: 0,
-  status: 'ready',
+  status: "ready",
   createdAt: Date.now(),
   updatedAt: Date.now(),
-}
+};
 
 export default function ProdukAdminPage() {
-  const [items, setItems] = useState<(Product & { id: string })[]>([])
-  const [form, setForm] = useState<Product>(initialForm)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const productsRef = useMemo(() => collection(db, 'products'), [])
+  const [items, setItems] = useState<(Product & { id: string })[]>([]);
+  const [form, setForm] = useState<Product>(initialForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const productsRef = useMemo(() => collection(db, "products"), []);
 
   useEffect(() => {
-    const q = query(productsRef, orderBy('createdAt', 'desc'))
+    const q = query(productsRef, orderBy("createdAt", "desc"));
     const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Product) }))
-      setItems(data)
-      setLoading(false)
-    })
-    return () => unsub()
-  }, [productsRef])
+      const data = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Product) }));
+      setItems(data);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, [productsRef]);
 
   async function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
+    e.preventDefault();
 
     const payload = stripUndefined({
       ...form,
       images: form.images ?? [],
-      category: form.category || 'lainnya',
-      status: form.status || 'ready',
+      category: form.category || "lainnya",
+      status: form.status || "ready",
       price: Number.isFinite(form.price) ? form.price : 0,
-      stock: Number.isFinite(form.stock ?? 0) ? (form.stock ?? 0) : 0,
+      stock: Number.isFinite(form.stock ?? 0) ? form.stock ?? 0 : 0,
       updatedAt: Date.now(),
       ...(editingId ? {} : { createdAt: Date.now() }),
-    })
+    });
 
     try {
       if (editingId) {
-        await updateDoc(doc(productsRef, editingId), payload as any)
-        setEditingId(null)
+        await updateDoc(doc(productsRef, editingId), payload as any);
+        setEditingId(null);
       } else {
-        await addDoc(productsRef, payload as any)
+        await addDoc(productsRef, payload as any);
       }
-      setForm(initialForm)
+      setForm(initialForm);
     } catch (error) {
-      console.error('Error saving product:', error)
-      alert('Terjadi kesalahan saat menyimpan produk')
+      console.error("Error saving product:", error);
+      alert("Terjadi kesalahan saat menyimpan produk");
     }
   }
 
   async function onDelete(id: string) {
-    if (!confirm('Apakah Anda yakin ingin menghapus produk ini?')) return
-    await deleteDoc(doc(productsRef, id))
+    if (!confirm("Apakah Anda yakin ingin menghapus produk ini?")) return;
+    await deleteDoc(doc(productsRef, id));
   }
 
   function onEdit(item: Product & { id: string }) {
-    setEditingId(item.id!)
+    setEditingId(item.id!);
     setForm({
       ...item,
       images: item.images ?? [],
-      links: { whatsapp: '', shopee: '', tokopedia: '', website: '', ...(item.links || {}) },
-      status: (item.status as 'ready' | 'habis') ?? 'ready',
-      category: (item.category as Product['category']) ?? 'lainnya',
-    })
+      links: { whatsapp: "", shopee: "", tokopedia: "", website: "", ...(item.links || {}) },
+      status: (item.status as "ready" | "habis") ?? "ready",
+      category: (item.category as Product["category"]) ?? "lainnya",
+    });
   }
 
   function cancelEdit() {
-    setEditingId(null)
-    setForm(initialForm)
+    setEditingId(null);
+    setForm(initialForm);
   }
 
   const fadeIn = {
@@ -138,43 +137,45 @@ export default function ProdukAdminPage() {
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.5 }
-    }
-  }
+      transition: { duration: 0.5 },
+    },
+  };
 
   const categories = [
-    { value: 'pakaian', label: 'Pakaian' },
-    { value: 'aksesoris', label: 'Aksesoris' },
-    { value: 'elektronik', label: 'Elektronik' },
-    { value: 'kecantikan', label: 'Kecantikan' },
-    { value: 'rumah tangga', label: 'Rumah Tangga' },
-    { value: 'lainnya', label: 'Lainnya' },
-  ]
+    { value: "pakaian", label: "Pakaian" },
+    { value: "aksesoris", label: "Aksesoris" },
+    { value: "elektronik", label: "Elektronik" },
+    { value: "kecantikan", label: "Kecantikan" },
+    { value: "rumah tangga", label: "Rumah Tangga" },
+    { value: "lainnya", label: "Lainnya" },
+  ];
 
   return (
     <ProtectedRoute requireRole="admin">
       <div className="flex min-h-screen bg-gray-50">
         <AdminSidebar />
-        <main className="flex-1 p-6 lg:p-8 space-y-6">
+        <main className="flex-1 space-y-6 p-6 lg:p-8">
           {/* Header Section */}
           <motion.div
             initial="hidden"
             animate="visible"
             variants={fadeIn}
-            className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
+            className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
           >
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Management Produk</h1>
-              <p className="text-gray-600 mt-1">Kelola katalog produk Anda</p>
+              <p className="mt-1 text-gray-600">Kelola katalog produk Anda</p>
             </div>
             {editingId && (
               <motion.button
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 onClick={cancelEdit}
-                className="flex items-center px-4 py-2 bg-gray-300 text-gray-700 rounded-xl hover:bg-gray-400 transition-colors"
+                className="flex items-center rounded-xl bg-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-400"
               >
-                <FiX className="mr-2" />
+                <span className="mr-2 inline-flex">
+                  <FiX size={16} />
+                </span>
                 Batalkan Edit
               </motion.button>
             )}
@@ -186,23 +187,27 @@ export default function ProdukAdminPage() {
             animate="visible"
             variants={fadeIn}
             transition={{ delay: 0.1 }}
-            className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100"
+            className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
           >
-            <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-              <FiPackage className="mr-2 text-blue-600" />
-              {editingId ? 'Edit Produk' : 'Tambah Produk Baru'}
+            <h2 className="mb-6 flex items-center text-xl font-semibold text-gray-900">
+              <span className="mr-2 inline-flex text-blue-600">
+                <FiPackage size={18} />
+              </span>
+              {editingId ? "Edit Produk" : "Tambah Produk Baru"}
             </h2>
-            
-            <form onSubmit={onSubmit} className="grid lg:grid-cols-2 gap-6">
+
+            <form onSubmit={onSubmit} className="grid gap-6 lg:grid-cols-2">
               {/* Left Column */}
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <FiShoppingBag className="mr-2 text-gray-400" />
+                  <label className="mb-2 flex items-center text-sm font-medium text-gray-700">
+                    <span className="mr-2 inline-flex text-gray-400">
+                      <FiShoppingBag size={16} />
+                    </span>
                     Nama Produk
                   </label>
                   <input
-                    className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     required
@@ -211,14 +216,18 @@ export default function ProdukAdminPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <FiTag className="mr-2 text-gray-400" />
+                  <label className="mb-2 flex items-center text-sm font-medium text-gray-700">
+                    <span className="mr-2 inline-flex text-gray-400">
+                      <FiTag size={16} />
+                    </span>
                     Kategori/Jenis
                   </label>
                   <select
-                    className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={form.category}
-                    onChange={(e) => setForm({ ...form, category: e.target.value as Product['category'] })}
+                    onChange={(e) =>
+                      setForm({ ...form, category: e.target.value as Product["category"] })
+                    }
                   >
                     {categories.map((cat) => (
                       <option key={cat.value} value={cat.value}>
@@ -229,12 +238,14 @@ export default function ProdukAdminPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <FiFileText className="mr-2 text-gray-400" />
+                  <label className="mb-2 flex items-center text-sm font-medium text-gray-700">
+                    <span className="mr-2 inline-flex text-gray-400">
+                      <FiFileText size={16} />
+                    </span>
                     Deskripsi
                   </label>
                   <textarea
-                    className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors min-h-[100px]"
+                    className="min-h-[100px] w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                     placeholder="Deskripsi produk..."
@@ -243,32 +254,36 @@ export default function ProdukAdminPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                      <FiDollarSign className="mr-2 text-gray-400" />
+                    <label className="mb-2 flex items-center text-sm font-medium text-gray-700">
+                      <span className="mr-2 inline-flex text-gray-400">
+                        <FiDollarSign size={16} />
+                      </span>
                       Harga
                     </label>
                     <input
                       type="number"
-                      className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={form.price}
                       onChange={(e) =>
-                        setForm({ ...form, price: e.target.value === '' ? 0 : Number(e.target.value) })
+                        setForm({ ...form, price: e.target.value === "" ? 0 : Number(e.target.value) })
                       }
                       required
                       min="0"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                      <FiBox className="mr-2 text-gray-400" />
+                    <label className="mb-2 flex items-center text-sm font-medium text-gray-700">
+                      <span className="mr-2 inline-flex text-gray-400">
+                        <FiBox size={16} />
+                      </span>
                       Stok
                     </label>
                     <input
                       type="number"
-                      className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={form.stock ?? 0}
                       onChange={(e) =>
-                        setForm({ ...form, stock: e.target.value === '' ? 0 : Number(e.target.value) })
+                        setForm({ ...form, stock: e.target.value === "" ? 0 : Number(e.target.value) })
                       }
                       min="0"
                     />
@@ -276,14 +291,18 @@ export default function ProdukAdminPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <FiCheckCircle className="mr-2 text-gray-400" />
+                  <label className="mb-2 flex items-center text-sm font-medium text-gray-700">
+                    <span className="mr-2 inline-flex text-gray-400">
+                      <FiCheckCircle size={16} />
+                    </span>
                     Status
                   </label>
                   <select
-                    className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value as Product['status'] })}
+                    onChange={(e) =>
+                      setForm({ ...form, status: e.target.value as Product["status"] })
+                    }
                   >
                     <option value="ready">Ready</option>
                     <option value="habis">Habis</option>
@@ -294,8 +313,10 @@ export default function ProdukAdminPage() {
               {/* Right Column */}
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <FiImage className="mr-2 text-gray-400" />
+                  <label className="mb-2 flex items-center text-sm font-medium text-gray-700">
+                    <span className="mr-2 inline-flex text-gray-400">
+                      <FiImage size={16} />
+                    </span>
                     Gambar Produk
                   </label>
                   <CloudinaryUploadApiMulti
@@ -304,11 +325,12 @@ export default function ProdukAdminPage() {
                   {form.images.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {form.images.map((url, index) => (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           key={index}
                           src={url}
                           alt={`Preview ${index}`}
-                          className="w-12 h-12 rounded-lg object-cover border"
+                          className="h-12 w-12 rounded-lg border object-cover"
                         />
                       ))}
                     </div>
@@ -316,44 +338,54 @@ export default function ProdukAdminPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                    <FiLink className="mr-2 text-gray-400" />
+                  <label className="mb-2 flex items-center text-sm font-medium text-gray-700">
+                    <span className="mr-2 inline-flex text-gray-400">
+                      <FiLink size={16} />
+                    </span>
                     Link Pembelian
                   </label>
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">WhatsApp</label>
+                      <label className="mb-1 block text-xs text-gray-500">WhatsApp</label>
                       <input
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        value={form.links?.whatsapp || ''}
-                        onChange={(e) => setForm({ ...form, links: { ...form.links, whatsapp: e.target.value } })}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={form.links?.whatsapp || ""}
+                        onChange={(e) =>
+                          setForm({ ...form, links: { ...form.links, whatsapp: e.target.value } })
+                        }
                         placeholder="https://wa.me/62…"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Website</label>
+                      <label className="mb-1 block text-xs text-gray-500">Website</label>
                       <input
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        value={form.links?.website || ''}
-                        onChange={(e) => setForm({ ...form, links: { ...form.links, website: e.target.value } })}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={form.links?.website || ""}
+                        onChange={(e) =>
+                          setForm({ ...form, links: { ...form.links, website: e.target.value } })
+                        }
                         placeholder="https://website.com"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Shopee</label>
+                      <label className="mb-1 block text-xs text-gray-500">Shopee</label>
                       <input
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        value={form.links?.shopee || ''}
-                        onChange={(e) => setForm({ ...form, links: { ...form.links, shopee: e.target.value } })}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={form.links?.shopee || ""}
+                        onChange={(e) =>
+                          setForm({ ...form, links: { ...form.links, shopee: e.target.value } })
+                        }
                         placeholder="https://shopee.co.id"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Tokopedia</label>
+                      <label className="mb-1 block text-xs text-gray-500">Tokopedia</label>
                       <input
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        value={form.links?.tokopedia || ''}
-                        onChange={(e) => setForm({ ...form, links: { ...form.links, tokopedia: e.target.value } })}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={form.links?.tokopedia || ""}
+                        onChange={(e) =>
+                          setForm({ ...form, links: { ...form.links, tokopedia: e.target.value } })
+                        }
                         placeholder="https://tokopedia.com"
                       />
                     </div>
@@ -364,10 +396,12 @@ export default function ProdukAdminPage() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-xl transition-colors flex items-center justify-center"
+                  className="flex w-full items-center justify-center rounded-xl bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700"
                 >
-                  <FiSave className="mr-2" />
-                  {editingId ? 'Update Produk' : 'Tambah Produk'}
+                  <span className="mr-2 inline-flex">
+                    <FiSave size={16} />
+                  </span>
+                  {editingId ? "Update Produk" : "Tambah Produk"}
                 </motion.button>
               </div>
             </form>
@@ -379,11 +413,13 @@ export default function ProdukAdminPage() {
             animate="visible"
             variants={fadeIn}
             transition={{ delay: 0.2 }}
-            className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+            className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
           >
-            <div className="px-6 py-4 border-b border-gray-100">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                <FiGrid className="mr-2 text-blue-600" />
+            <div className="border-b border-gray-100 px-6 py-4">
+              <h2 className="flex items-center text-xl font-semibold text-gray-900">
+                <span className="mr-2 inline-flex text-blue-600">
+                  <FiGrid size={18} />
+                </span>
                 Daftar Produk ({items.length})
               </h2>
             </div>
@@ -392,116 +428,124 @@ export default function ProdukAdminPage() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Produk
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Kategori
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Harga
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Stok
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Aksi
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-100 bg-white">
                   {loading ? (
                     // Skeleton Loaders
                     [1, 2, 3, 4, 5].map((i) => (
                       <tr key={i} className="animate-pulse">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="whitespace-nowrap px-6 py-4">
                           <div className="flex items-center">
-                            <div className="w-10 h-10 bg-gray-200 rounded"></div>
+                            <div className="h-10 w-10 rounded bg-gray-200"></div>
                             <div className="ml-3 space-y-2">
-                              <div className="h-4 bg-gray-200 rounded w-24"></div>
-                              <div className="h-3 bg-gray-200 rounded w-16"></div>
+                              <div className="h-4 w-24 rounded bg-gray-200"></div>
+                              <div className="h-3 w-16 rounded bg-gray-200"></div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="h-4 bg-gray-200 rounded w-20"></div>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div className="h-4 w-20 rounded bg-gray-200"></div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="h-4 bg-gray-200 rounded w-16"></div>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div className="h-4 w-16 rounded bg-gray-200"></div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="h-4 bg-gray-200 rounded w-12"></div>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div className="h-4 w-12 rounded bg-gray-200"></div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="h-6 bg-gray-200 rounded w-16"></div>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div className="h-6 w-16 rounded bg-gray-200"></div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="h-8 bg-gray-200 rounded w-20"></div>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div className="h-8 w-20 rounded bg-gray-200"></div>
                         </td>
                       </tr>
                     ))
                   ) : items.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-12 text-center">
-                        <FiPackage className="mx-auto text-gray-400 mb-4" size={48} />
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Belum ada produk</h3>
+                        <div className="mx-auto mb-4 w-fit text-gray-400">
+                          <FiPackage size={48} />
+                        </div>
+                        <h3 className="mb-2 text-lg font-semibold text-gray-900">Belum ada produk</h3>
                         <p className="text-gray-600">Mulai dengan menambahkan produk pertama Anda</p>
                       </td>
                     </tr>
                   ) : (
                     items.map((it) => (
-                      <tr key={it.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                      <tr key={it.id} className="transition-colors hover:bg-gray-50">
+                        <td className="whitespace-nowrap px-6 py-4">
                           <div className="flex items-center">
                             {it.images?.[0] ? (
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={it.images[0]}
                                 alt={it.name}
-                                className="w-10 h-10 rounded-lg object-cover"
+                                className="h-10 w-10 rounded-lg object-cover"
                               />
                             ) : (
-                              <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
-                                <FiPackage className="text-gray-400" />
+                              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-200">
+                                <div className="inline-flex text-gray-400">
+                                  <FiPackage size={18} />
+                                </div>
                               </div>
                             )}
                             <div className="ml-3">
                               <div className="text-sm font-medium text-gray-900">{it.name}</div>
-                              <div className="text-xs text-gray-500 line-clamp-1">{it.description}</div>
+                              <div className="line-clamp-1 text-xs text-gray-500">{it.description}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium capitalize text-blue-800">
                             {it.category}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="whitespace-nowrap px-6 py-4">
                           <div className="text-sm font-medium text-gray-900">
-                            Rp {Number(it.price || 0).toLocaleString('id-ID')}
+                            Rp {Number(it.price || 0).toLocaleString("id-ID")}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-900">{it.stock ?? '-'}</span>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <span className="text-sm text-gray-900">{it.stock ?? "-"}</span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            it.status === 'ready' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {it.status === 'ready' ? 'Ready' : 'Habis'}
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <span
+                            className={[
+                              "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                              it.status === "ready"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800",
+                            ].join(" ")}
+                          >
+                            {it.status === "ready" ? "Ready" : "Habis"}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="whitespace-nowrap px-6 py-4">
                           <div className="flex items-center space-x-2">
                             <motion.button
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
                               onClick={() => onEdit(it)}
-                              className="p-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                              className="rounded-lg bg-yellow-500 p-1.5 text-white transition-colors hover:bg-yellow-600"
                               title="Edit"
                             >
                               <FiEdit size={14} />
@@ -510,7 +554,7 @@ export default function ProdukAdminPage() {
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
                               onClick={() => onDelete(it.id!)}
-                              className="p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                              className="rounded-lg bg-red-600 p-1.5 text-white transition-colors hover:bg-red-700"
                               title="Hapus"
                             >
                               <FiTrash2 size={14} />
@@ -527,5 +571,5 @@ export default function ProdukAdminPage() {
         </main>
       </div>
     </ProtectedRoute>
-  )
+  );
 }

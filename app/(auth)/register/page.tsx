@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { setDoc, doc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { FiUserPlus, FiMail, FiLock, FiUser, FiEye, FiEyeOff, FiCheck } from "react-icons/fi";
+import { FiUserPlus, FiMail, FiLock, FiUser, FiEye, FiEyeOff } from "react-icons/fi";
 
 function mapFirebaseError(code?: string): string {
   switch (code) {

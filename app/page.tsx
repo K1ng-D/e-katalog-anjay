@@ -1,18 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { FiLogIn, FiUserPlus } from "react-icons/fi"; // FiGrid dihapus karena tidak dipakai
+import { motion, type Easing } from "framer-motion";
+import { FiLogIn, FiUserPlus } from "react-icons/fi";
 
-const ease: number[] = [0.22, 1, 0.36, 1];
+const ease: Easing = [0.22, 1, 0.36, 1]; // <- tuple cubic-bezier yang valid
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen w-full bg-whitex text-slate-800 flex items-center justify-center px-6">
+    <main className="min-h-screen w-full bg-white text-slate-800 flex items-center justify-center px-6">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease }}
+        transition={{ duration: 0.6, ease }} // <- aman sekarang
         className="w-full max-w-2xl text-center space-y-7"
       >
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900">
@@ -26,13 +26,11 @@ export default function HomePage() {
           Kelola produk & makanan dengan tampilan sederhana, cepat, dan aman.
         </p>
 
-        {/* CTA: biru & oranye */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
             href="/login"
             className="inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-6 py-3 text-base font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400/60 transition"
           >
-            {/* Gunakan size alih-alih className */}
             <FiLogIn size={20} aria-hidden />
             Login
           </Link>
