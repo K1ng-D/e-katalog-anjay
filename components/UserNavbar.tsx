@@ -47,21 +47,21 @@ export default function UserNavbar() {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <nav className="w-full bg-white shadow-lg border-b border-gray-100 px-8 sm:px-10 lg:px-24 py-4">
+    <nav className="relative w-full bg-white shadow-lg border-b border-gray-100 px-6 sm:px-8 lg:px-24 py-4">
       <div className="flex justify-between items-center">
         {/* Logo/Brand */}
-        <Link href="/dashboard/home" className="flex items-center space-x-2">
-          <div className="w-30 h-20 rounded-lg flex items-center justify-center overflow-hidden">
+        <Link href="/dashboard/home" className="flex items-center space-x-3">
+          <div className="h-25 w-auto flex items-center">
             <Image
               src="/images/LADUNIMART.png"
               alt="Logo LADUNIMART"
               width={300}
               height={300}
-              className="w-30 h-300 object-contain"
+              className="h-25 w-auto object-contain"
               priority
             />
           </div>
-          
+         
         </Link>
 
         {/* Desktop Navigation */}
@@ -111,11 +111,12 @@ export default function UserNavbar() {
                   <div className="text-xs text-gray-500">{profile?.role || "user"}</div>
                 </div>
                 <span
-  className={`text-gray-400 inline-flex transition-transform ${isProfileDropdownOpen ? 'rotate-180' : ''}`}
->
-  <FiChevronDown size={16} />
-</span>
-
+                  className={`text-gray-400 inline-flex transition-transform ${
+                    isProfileDropdownOpen ? "rotate-180" : ""
+                  }`}
+                >
+                  <FiChevronDown size={16} />
+                </span>
               </button>
 
               {/* Profile Dropdown */}
@@ -172,7 +173,7 @@ export default function UserNavbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden mt-4 border-t border-gray-100 pt-4"
+            className="md:hidden mt-4 border-t border-gray-100 pt-4 bg-white rounded-b-2xl shadow-xl relative z-50"
           >
             <div className="space-y-2">
               {navItems.map(({ href, label, icon: Icon }) => {
@@ -203,18 +204,18 @@ export default function UserNavbar() {
                   <div className="flex items-center px-4">
                     <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold mr-3">
                       {profile?.displayName?.[0]?.toUpperCase() ||
-                        user.email?.[0]?.toUpperCase() ||
+                        user?.email?.[0]?.toUpperCase() ||
                         "U"}
                     </div>
                     <div className="flex-1">
                       <div className="text-sm font-medium text-gray-900">
-                        {profile?.displayName || user.email?.split("@")[0]}
+                        {profile?.displayName || user?.email?.split("@")[0]}
                       </div>
                       <div className="text-xs text-gray-500">{profile?.role || "user"}</div>
                     </div>
                   </div>
                   <Link
-                    href={`/dashboard/${user.uid}`}
+                    href={`/dashboard/${user?.uid ?? ""}`}
                     className="flex items-center px-4 py-3 text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-xl"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
@@ -247,8 +248,9 @@ export default function UserNavbar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+            className="fixed inset-0 bg-white bg-opacity-50 z-40 md:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
+            aria-hidden
           />
         )}
       </AnimatePresence>
