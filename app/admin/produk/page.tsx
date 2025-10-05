@@ -15,7 +15,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import type { Product } from "@/lib/types";
+import type { Product, Size, ProductCategory } from "@/lib/types";
 import CloudinaryUploadApiMulti from "@/components/CloudinaryMultiUpload";
 import { motion } from "framer-motion";
 import {
@@ -35,12 +35,14 @@ import {
   FiCheckCircle,
 } from "react-icons/fi";
 
-// Utilities: hilangkan semua undefined sebelum dikirim ke Firestore
+/** Utilities: hilangkan semua undefined sebelum dikirim ke Firestore */
 function stripUndefined<T>(obj: T): T {
   if (Array.isArray(obj)) {
     return obj
       .filter((v) => v !== undefined)
-      .map((v) => (v && typeof v === "object" ? stripUndefined(v as any) : v)) as any;
+      .map((v) =>
+        v && typeof v === "object" ? stripUndefined(v as any) : v
+      ) as any;
   }
   if (obj && typeof obj === "object") {
     const out: any = {};
@@ -64,6 +66,10 @@ const initialForm: Product = {
   status: "ready",
   createdAt: Date.now(),
   updatedAt: Date.now(),
+
+  // NEW
+  sizes: [],
+  preorder: 0,
 };
 
 export default function ProdukAdminPage() {
@@ -76,7 +82,10 @@ export default function ProdukAdminPage() {
   useEffect(() => {
     const q = query(productsRef, orderBy("createdAt", "desc"));
     const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Product) }));
+      const data = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Product),
+      }));
       setItems(data);
       setLoading(false);
     });
@@ -93,6 +102,10 @@ export default function ProdukAdminPage() {
       status: form.status || "ready",
       price: Number.isFinite(form.price) ? form.price : 0,
       stock: Number.isFinite(form.stock ?? 0) ? form.stock ?? 0 : 0,
+      // NEW
+      sizes: Array.isArray(form.sizes) ? form.sizes : [],
+      preorder: (form.preorder ?? 0) as 0 | 3 | 7 | 10,
+
       updatedAt: Date.now(),
       ...(editingId ? {} : { createdAt: Date.now() }),
     });
@@ -121,9 +134,18 @@ export default function ProdukAdminPage() {
     setForm({
       ...item,
       images: item.images ?? [],
-      links: { whatsapp: "", shopee: "", tokopedia: "", website: "", ...(item.links || {}) },
+      links: {
+        whatsapp: "",
+        shopee: "",
+        tokopedia: "",
+        website: "",
+        ...(item.links || {}),
+      },
       status: (item.status as "ready" | "habis") ?? "ready",
-      category: (item.category as Product["category"]) ?? "lainnya",
+      category: (item.category as ProductCategory) ?? "lainnya",
+      // NEW
+      sizes: item.sizes ?? [],
+      preorder: (item.preorder as 0 | 3 | 7 | 10) ?? 0,
     });
   }
 
@@ -141,7 +163,7 @@ export default function ProdukAdminPage() {
     },
   };
 
-  const categories = [
+  const categories: { value: ProductCategory; label: string }[] = [
     { value: "pakaian", label: "Pakaian" },
     { value: "aksesoris", label: "Aksesoris" },
     { value: "elektronik", label: "Elektronik" },
@@ -149,6 +171,8 @@ export default function ProdukAdminPage() {
     { value: "rumah tangga", label: "Rumah Tangga" },
     { value: "lainnya", label: "Lainnya" },
   ];
+
+  const sizeOptions: Size[] = ["S", "M", "L", "XL", "XXL"];
 
   return (
     <ProtectedRoute requireRole="admin">
@@ -163,7 +187,9 @@ export default function ProdukAdminPage() {
             className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
           >
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Management Produk</h1>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Management Produk
+              </h1>
               <p className="mt-1 text-gray-600">Kelola katalog produk Anda</p>
             </div>
             {editingId && (
@@ -226,7 +252,10 @@ export default function ProdukAdminPage() {
                     className="w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={form.category}
                     onChange={(e) =>
-                      setForm({ ...form, category: e.target.value as Product["category"] })
+                      setForm({
+                        ...form,
+                        category: e.target.value as ProductCategory,
+                      })
                     }
                   >
                     {categories.map((cat) => (
@@ -247,7 +276,9 @@ export default function ProdukAdminPage() {
                   <textarea
                     className="min-h-[100px] w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, description: e.target.value })
+                    }
                     placeholder="Deskripsi produk..."
                   />
                 </div>
@@ -265,7 +296,11 @@ export default function ProdukAdminPage() {
                       className="w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={form.price}
                       onChange={(e) =>
-                        setForm({ ...form, price: e.target.value === "" ? 0 : Number(e.target.value) })
+                        setForm({
+                          ...form,
+                          price:
+                            e.target.value === "" ? 0 : Number(e.target.value),
+                        })
                       }
                       required
                       min="0"
@@ -283,11 +318,83 @@ export default function ProdukAdminPage() {
                       className="w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={form.stock ?? 0}
                       onChange={(e) =>
-                        setForm({ ...form, stock: e.target.value === "" ? 0 : Number(e.target.value) })
+                        setForm({
+                          ...form,
+                          stock:
+                            e.target.value === "" ? 0 : Number(e.target.value),
+                        })
                       }
                       min="0"
                     />
                   </div>
+                </div>
+
+                {/* === NEW: Pilihan Ukuran === */}
+                <div>
+                  <label className="mb-2 flex items-center text-sm font-medium text-gray-700">
+                    Pilihan Ukuran
+                  </label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {sizeOptions.map((sz) => {
+                      const checked = form.sizes?.includes(sz) ?? false;
+                      return (
+                        <label
+                          key={sz}
+                          className={[
+                            "cursor-pointer select-none rounded-xl border px-3 py-2 text-center text-sm",
+                            checked
+                              ? "border-blue-500 bg-blue-50 text-blue-700"
+                              : "border-gray-300 bg-white text-gray-700",
+                          ].join(" ")}
+                        >
+                          <input
+                            type="checkbox"
+                            className="hidden"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = new Set(form.sizes ?? []);
+                              if (e.target.checked) next.add(sz);
+                              else next.delete(sz);
+                              setForm({
+                                ...form,
+                                sizes: Array.from(next) as Size[],
+                              });
+                            }}
+                          />
+                          {sz}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Centang ukuran yang tersedia untuk produk ini.
+                  </p>
+                </div>
+
+                {/* === NEW: Pre-Order === */}
+                <div>
+                  <label className="mb-2 flex items-center text-sm font-medium text-gray-700">
+                    Pre-Order
+                  </label>
+                  <select
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={form.preorder ?? 0}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        preorder: Number(e.target.value) as 0 | 3 | 7 | 10,
+                      })
+                    }
+                  >
+                    <option value={0}>Tidak (Ready/Non-PO)</option>
+                    <option value={3}>3 Hari</option>
+                    <option value={7}>7 Hari</option>
+                    <option value={10}>10 Hari</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Jika dipilih, produk akan ditandai sebagai Pre-Order dengan
+                    estimasi hari tertera.
+                  </p>
                 </div>
 
                 <div>
@@ -301,7 +408,10 @@ export default function ProdukAdminPage() {
                     className="w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={form.status}
                     onChange={(e) =>
-                      setForm({ ...form, status: e.target.value as Product["status"] })
+                      setForm({
+                        ...form,
+                        status: e.target.value as Product["status"],
+                      })
                     }
                   >
                     <option value="ready">Ready</option>
@@ -320,7 +430,9 @@ export default function ProdukAdminPage() {
                     Gambar Produk
                   </label>
                   <CloudinaryUploadApiMulti
-                    onUploaded={(urls) => setForm({ ...form, images: urls ?? [] })}
+                    onUploaded={(urls) =>
+                      setForm({ ...form, images: urls ?? [] })
+                    }
                   />
                   {form.images.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -346,45 +458,65 @@ export default function ProdukAdminPage() {
                   </label>
                   <div className="space-y-3">
                     <div>
-                      <label className="mb-1 block text-xs text-gray-500">WhatsApp</label>
+                      <label className="mb-1 block text-xs text-gray-500">
+                        WhatsApp
+                      </label>
                       <input
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={form.links?.whatsapp || ""}
                         onChange={(e) =>
-                          setForm({ ...form, links: { ...form.links, whatsapp: e.target.value } })
+                          setForm({
+                            ...form,
+                            links: { ...form.links, whatsapp: e.target.value },
+                          })
                         }
                         placeholder="https://wa.me/62…"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-gray-500">Website</label>
+                      <label className="mb-1 block text-xs text-gray-500">
+                        Website
+                      </label>
                       <input
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={form.links?.website || ""}
                         onChange={(e) =>
-                          setForm({ ...form, links: { ...form.links, website: e.target.value } })
+                          setForm({
+                            ...form,
+                            links: { ...form.links, website: e.target.value },
+                          })
                         }
                         placeholder="https://website.com"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-gray-500">Shopee</label>
+                      <label className="mb-1 block text-xs text-gray-500">
+                        Shopee
+                      </label>
                       <input
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={form.links?.shopee || ""}
                         onChange={(e) =>
-                          setForm({ ...form, links: { ...form.links, shopee: e.target.value } })
+                          setForm({
+                            ...form,
+                            links: { ...form.links, shopee: e.target.value },
+                          })
                         }
                         placeholder="https://shopee.co.id"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-gray-500">Tokopedia</label>
+                      <label className="mb-1 block text-xs text-gray-500">
+                        Tokopedia
+                      </label>
                       <input
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={form.links?.tokopedia || ""}
                         onChange={(e) =>
-                          setForm({ ...form, links: { ...form.links, tokopedia: e.target.value } })
+                          setForm({
+                            ...form,
+                            links: { ...form.links, tokopedia: e.target.value },
+                          })
                         }
                         placeholder="https://tokopedia.com"
                       />
@@ -434,6 +566,15 @@ export default function ProdukAdminPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Kategori
                     </th>
+
+                    {/* NEW HEADERS */}
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Ukuran
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Pre-Order
+                    </th>
+
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Harga
                     </th>
@@ -450,7 +591,6 @@ export default function ProdukAdminPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
                   {loading ? (
-                    // Skeleton Loaders
                     [1, 2, 3, 4, 5].map((i) => (
                       <tr key={i} className="animate-pulse">
                         <td className="whitespace-nowrap px-6 py-4">
@@ -461,6 +601,12 @@ export default function ProdukAdminPage() {
                               <div className="h-3 w-16 rounded bg-gray-200"></div>
                             </div>
                           </div>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div className="h-4 w-20 rounded bg-gray-200"></div>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <div className="h-4 w-20 rounded bg-gray-200"></div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
                           <div className="h-4 w-20 rounded bg-gray-200"></div>
@@ -481,17 +627,24 @@ export default function ProdukAdminPage() {
                     ))
                   ) : items.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center">
+                      <td colSpan={8} className="px-6 py-12 text-center">
                         <div className="mx-auto mb-4 w-fit text-gray-400">
                           <FiPackage size={48} />
                         </div>
-                        <h3 className="mb-2 text-lg font-semibold text-gray-900">Belum ada produk</h3>
-                        <p className="text-gray-600">Mulai dengan menambahkan produk pertama Anda</p>
+                        <h3 className="mb-2 text-lg font-semibold text-gray-900">
+                          Belum ada produk
+                        </h3>
+                        <p className="text-gray-600">
+                          Mulai dengan menambahkan produk pertama Anda
+                        </p>
                       </td>
                     </tr>
                   ) : (
                     items.map((it) => (
-                      <tr key={it.id} className="transition-colors hover:bg-gray-50">
+                      <tr
+                        key={it.id}
+                        className="transition-colors hover:bg-gray-50"
+                      >
                         <td className="whitespace-nowrap px-6 py-4">
                           <div className="flex items-center">
                             {it.images?.[0] ? (
@@ -509,8 +662,12 @@ export default function ProdukAdminPage() {
                               </div>
                             )}
                             <div className="ml-3">
-                              <div className="text-sm font-medium text-gray-900">{it.name}</div>
-                              <div className="line-clamp-1 text-xs text-gray-500">{it.description}</div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {it.name}
+                              </div>
+                              <div className="line-clamp-1 text-xs text-gray-500">
+                                {it.description}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -519,13 +676,47 @@ export default function ProdukAdminPage() {
                             {it.category}
                           </span>
                         </td>
+
+                        {/* NEW: Ukuran */}
+                        <td className="whitespace-nowrap px-6 py-4">
+                          {it.sizes && it.sizes.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {it.sizes.map((s) => (
+                                <span
+                                  key={s}
+                                  className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700"
+                                >
+                                  {s}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </td>
+
+                        {/* NEW: Pre-Order */}
+                        <td className="whitespace-nowrap px-6 py-4">
+                          {it.preorder && it.preorder > 0 ? (
+                            <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                              PO {it.preorder} hari
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
+                              Non-PO
+                            </span>
+                          )}
+                        </td>
+
                         <td className="whitespace-nowrap px-6 py-4">
                           <div className="text-sm font-medium text-gray-900">
                             Rp {Number(it.price || 0).toLocaleString("id-ID")}
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <span className="text-sm text-gray-900">{it.stock ?? "-"}</span>
+                          <span className="text-sm text-gray-900">
+                            {it.stock ?? "-"}
+                          </span>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
                           <span

@@ -17,7 +17,7 @@ import {
 import { db } from "@/lib/firebase";
 import type { Food } from "@/lib/types";
 import CloudinaryUploadApiMulti from "@/components/CloudinaryMultiUpload";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   FiCoffee,
   FiDollarSign,
@@ -40,7 +40,9 @@ function stripUndefined<T>(obj: T): T {
   if (Array.isArray(obj)) {
     return obj
       .filter((v) => v !== undefined)
-      .map((v) => (v && typeof v === "object" ? stripUndefined(v as any) : v)) as any;
+      .map((v) =>
+        v && typeof v === "object" ? stripUndefined(v as any) : v
+      ) as any;
   }
   if (obj && typeof obj === "object") {
     const out: any = {};
@@ -65,6 +67,9 @@ const initialForm: Food = {
   status: "available",
   createdAt: Date.now(),
   updatedAt: Date.now(),
+
+  // NEW
+  preorder: 0, // 0 = Non-PO
 };
 
 export default function MakananAdminPage() {
@@ -99,7 +104,13 @@ export default function MakananAdminPage() {
       foodCategory: form.foodCategory || "makanan ringan",
       status: form.status || "available",
       price: Number.isFinite(form.price) ? form.price : 0,
-      weightGrams: Number.isFinite(form.weightGrams ?? 0) ? form.weightGrams ?? 0 : 0,
+      weightGrams: Number.isFinite(form.weightGrams ?? 0)
+        ? form.weightGrams ?? 0
+        : 0,
+
+      // NEW: normalisasi PO
+      preorder: (form.preorder ?? 0) as 0 | 3 | 7 | 10,
+
       updatedAt: Date.now(),
       ...(editingId ? {} : { createdAt: Date.now() }),
     });
@@ -136,9 +147,15 @@ export default function MakananAdminPage() {
         ...(item.links || {}),
       },
       status: (item.status as Food["status"]) ?? "available",
-      foodCategory: (item.foodCategory as Food["foodCategory"]) ?? "makanan ringan",
+      foodCategory:
+        (item.foodCategory as Food["foodCategory"]) ?? "makanan ringan",
       price: Number.isFinite(item.price) ? item.price : 0,
-      weightGrams: Number.isFinite(item.weightGrams ?? 0) ? item.weightGrams ?? 0 : 0,
+      weightGrams: Number.isFinite(item.weightGrams ?? 0)
+        ? item.weightGrams ?? 0
+        : 0,
+
+      // NEW
+      preorder: (item.preorder as 0 | 3 | 7 | 10) ?? 0,
     });
   }
 
@@ -183,7 +200,9 @@ export default function MakananAdminPage() {
             className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
           >
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Management Makanan</h1>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Management Makanan
+              </h1>
               <p className="mt-1 text-gray-600">Kelola menu makanan Anda</p>
             </div>
             {editingId && (
@@ -246,7 +265,10 @@ export default function MakananAdminPage() {
                     className="w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={form.foodCategory}
                     onChange={(e) =>
-                      setForm({ ...form, foodCategory: e.target.value as Food["foodCategory"] })
+                      setForm({
+                        ...form,
+                        foodCategory: e.target.value as Food["foodCategory"],
+                      })
                     }
                   >
                     {foodCategories.map((cat) => (
@@ -267,7 +289,9 @@ export default function MakananAdminPage() {
                   <textarea
                     className="min-h-[100px] w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, description: e.target.value })
+                    }
                     placeholder="Deskripsi makanan..."
                   />
                 </div>
@@ -287,7 +311,8 @@ export default function MakananAdminPage() {
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          price: e.target.value === "" ? 0 : Number(e.target.value),
+                          price:
+                            e.target.value === "" ? 0 : Number(e.target.value),
                         })
                       }
                       required
@@ -308,12 +333,39 @@ export default function MakananAdminPage() {
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          weightGrams: e.target.value === "" ? 0 : Number(e.target.value),
+                          weightGrams:
+                            e.target.value === "" ? 0 : Number(e.target.value),
                         })
                       }
                       min="0"
                     />
                   </div>
+                </div>
+
+                {/* NEW: Pre-Order */}
+                <div>
+                  <label className="mb-2 flex items-center text-sm font-medium text-gray-700">
+                    Pre-Order
+                  </label>
+                  <select
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={form.preorder ?? 0}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        preorder: Number(e.target.value) as 0 | 3 | 7 | 10,
+                      })
+                    }
+                  >
+                    <option value={0}>Tidak (Ready/Non-PO)</option>
+                    <option value={3}>3 Hari</option>
+                    <option value={7}>7 Hari</option>
+                    <option value={10}>10 Hari</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Jika dipilih, menu akan ditandai sebagai Pre-Order dengan
+                    estimasi hari tertera.
+                  </p>
                 </div>
 
                 <div>
@@ -326,7 +378,12 @@ export default function MakananAdminPage() {
                   <select
                     className="w-full rounded-xl border border-gray-300 px-4 py-3 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value as Food["status"] })}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        status: e.target.value as Food["status"],
+                      })
+                    }
                   >
                     {statusOptions.map((status) => (
                       <option key={status.value} value={status.value}>
@@ -347,7 +404,9 @@ export default function MakananAdminPage() {
                     Gambar Makanan
                   </label>
                   <CloudinaryUploadApiMulti
-                    onUploaded={(urls) => setForm({ ...form, images: urls ?? [] })}
+                    onUploaded={(urls) =>
+                      setForm({ ...form, images: urls ?? [] })
+                    }
                     onUploadingChange={setIsUploading}
                   />
                   {form.images.length > 0 && (
@@ -374,45 +433,65 @@ export default function MakananAdminPage() {
                   </label>
                   <div className="space-y-3">
                     <div>
-                      <label className="mb-1 block text-xs text-gray-500">WhatsApp</label>
+                      <label className="mb-1 block text-xs text-gray-500">
+                        WhatsApp
+                      </label>
                       <input
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={form.links?.whatsapp || ""}
                         onChange={(e) =>
-                          setForm({ ...form, links: { ...form.links, whatsapp: e.target.value } })
+                          setForm({
+                            ...form,
+                            links: { ...form.links, whatsapp: e.target.value },
+                          })
                         }
                         placeholder="https://wa.me/62…"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-gray-500">Website</label>
+                      <label className="mb-1 block text-xs text-gray-500">
+                        Website
+                      </label>
                       <input
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={form.links?.website || ""}
                         onChange={(e) =>
-                          setForm({ ...form, links: { ...form.links, website: e.target.value } })
+                          setForm({
+                            ...form,
+                            links: { ...form.links, website: e.target.value },
+                          })
                         }
                         placeholder="https://website.com"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-gray-500">Shopee</label>
+                      <label className="mb-1 block text-xs text-gray-500">
+                        Shopee
+                      </label>
                       <input
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={form.links?.shopee || ""}
                         onChange={(e) =>
-                          setForm({ ...form, links: { ...form.links, shopee: e.target.value } })
+                          setForm({
+                            ...form,
+                            links: { ...form.links, shopee: e.target.value },
+                          })
                         }
                         placeholder="https://shopee.co.id"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-gray-500">Tokopedia</label>
+                      <label className="mb-1 block text-xs text-gray-500">
+                        Tokopedia
+                      </label>
                       <input
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={form.links?.tokopedia || ""}
                         onChange={(e) =>
-                          setForm({ ...form, links: { ...form.links, tokopedia: e.target.value } })
+                          setForm({
+                            ...form,
+                            links: { ...form.links, tokopedia: e.target.value },
+                          })
                         }
                         placeholder="https://tokopedia.com"
                       />
@@ -472,6 +551,12 @@ export default function MakananAdminPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Kategori
                     </th>
+
+                    {/* NEW HEADER: Pre-Order */}
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Pre-Order
+                    </th>
+
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Harga
                     </th>
@@ -504,6 +589,9 @@ export default function MakananAdminPage() {
                           <div className="h-4 w-20 rounded bg-gray-200"></div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
+                          <div className="h-4 w-20 rounded bg-gray-200"></div>
+                        </td>
+                        <td className="whitespace-nowrap px-6 py-4">
                           <div className="h-4 w-16 rounded bg-gray-200"></div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
@@ -519,17 +607,24 @@ export default function MakananAdminPage() {
                     ))
                   ) : items.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center">
+                      <td colSpan={7} className="px-6 py-12 text-center">
                         <span className="mx-auto mb-4 inline-flex">
                           <FiCoffee size={48} />
                         </span>
-                        <h3 className="mb-2 text-lg font-semibold text-gray-900">Belum ada makanan</h3>
-                        <p className="text-gray-600">Mulai dengan menambahkan makanan pertama Anda</p>
+                        <h3 className="mb-2 text-lg font-semibold text-gray-900">
+                          Belum ada makanan
+                        </h3>
+                        <p className="text-gray-600">
+                          Mulai dengan menambahkan makanan pertama Anda
+                        </p>
                       </td>
                     </tr>
                   ) : (
                     items.map((it) => (
-                      <tr key={it.id} className="transition-colors hover:bg-gray-50">
+                      <tr
+                        key={it.id}
+                        className="transition-colors hover:bg-gray-50"
+                      >
                         <td className="whitespace-nowrap px-6 py-4">
                           <div className="flex items-center">
                             {it.images?.[0] ? (
@@ -547,7 +642,9 @@ export default function MakananAdminPage() {
                               </div>
                             )}
                             <div className="ml-3">
-                              <div className="text-sm font-medium text-gray-900">{it.name}</div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {it.name}
+                              </div>
                               <div className="line-clamp-1 text-xs text-gray-500">
                                 {it.description}
                               </div>
@@ -559,6 +656,20 @@ export default function MakananAdminPage() {
                             {it.foodCategory}
                           </span>
                         </td>
+
+                        {/* NEW: Pre-Order badge */}
+                        <td className="whitespace-nowrap px-6 py-4">
+                          {it.preorder && it.preorder > 0 ? (
+                            <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                              PO {it.preorder} hari
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
+                              Non-PO
+                            </span>
+                          )}
+                        </td>
+
                         <td className="whitespace-nowrap px-6 py-4">
                           <div className="text-sm font-medium text-gray-900">
                             Rp {Number(it.price || 0).toLocaleString("id-ID")}
