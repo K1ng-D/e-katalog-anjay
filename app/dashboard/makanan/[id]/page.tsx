@@ -18,6 +18,7 @@ import {
   FiGlobe,
   FiCoffee,
 } from "react-icons/fi";
+import type { ImageItem } from "@/lib/types";
 
 type Food = {
   name: string;
@@ -25,7 +26,7 @@ type Food = {
   description?: string;
   price: number;
   weightGrams?: number;
-  images?: string[];
+  images?: ImageItem[];
   links?: {
     whatsapp?: string;
     shopee?: string;
@@ -35,10 +36,14 @@ type Food = {
   status?: "available" | "soldout" | "draft";
   createdAt?: number;
   updatedAt?: number;
-
-  /** NEW: tampilkan pre-order */
   preorder?: 0 | 3 | 7 | 10; // 0 = Non-PO
 };
+
+// --- helper: normalisasi images lama (string[]) → ImageItem[]
+function normalizeImages(imgs: any[] | undefined): ImageItem[] {
+  if (!imgs) return [];
+  return imgs.map((it) => (typeof it === "string" ? { url: it } : it));
+}
 
 function fmtDate(ms?: number) {
   if (!ms) return "-";
@@ -60,18 +65,18 @@ function DetailSkeleton() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
-        <div className="h-6 w-24 bg-gray-200 rounded animate-pulse"></div>
+        <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
       </div>
       <div className="grid lg:grid-cols-2 gap-8">
         <div className="bg-white rounded-2xl shadow-sm p-4 border border-gray-100">
-          <div className="aspect-square bg-gray-200 rounded-xl animate-pulse"></div>
+          <div className="aspect-square bg-gray-200 rounded-xl animate-pulse" />
         </div>
         <div className="space-y-6">
-          <div className="h-8 bg-gray-200 rounded animate-pulse w-3/4"></div>
-          <div className="h-10 bg-gray-200 rounded animate-pulse w-1/2"></div>
-          <div className="h-4 bg-gray-200 rounded animate-pulse w-1/3"></div>
-          <div className="h-20 bg-gray-200 rounded animate-pulse"></div>
-          <div className="h-12 bg-gray-200 rounded animate-pulse w-full"></div>
+          <div className="h-8 bg-gray-200 rounded animate-pulse w-3/4" />
+          <div className="h-10 bg-gray-200 rounded animate-pulse w-1/2" />
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-1/3" />
+          <div className="h-20 bg-gray-200 rounded animate-pulse" />
+          <div className="h-12 bg-gray-200 rounded animate-pulse w-full" />
         </div>
       </div>
     </div>
@@ -98,7 +103,12 @@ export default function MakananDetailPage() {
           setLoading(false);
           return;
         }
-        setItem({ id: snap.id, ...(snap.data() as Food) });
+        const raw = snap.data() as any;
+        const normalized: Food = {
+          ...raw,
+          images: normalizeImages(raw.images),
+        };
+        setItem({ id: snap.id, ...normalized });
         setLoading(false);
       },
       () => {
@@ -201,10 +211,10 @@ export default function MakananDetailPage() {
                 className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100"
               >
                 <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl overflow-hidden mb-4">
-                  {item.images?.[activeImage] ? (
+                  {item.images?.[activeImage]?.url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={item.images[activeImage]}
+                      src={item.images[activeImage].url}
                       alt={item.name}
                       className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                     />
@@ -231,7 +241,7 @@ export default function MakananDetailPage() {
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={image}
+                          src={image.url}
                           alt={`${item.name} ${index + 1}`}
                           className="w-full h-full object-cover"
                         />
@@ -292,7 +302,7 @@ export default function MakananDetailPage() {
                           ? "bg-red-500"
                           : "bg-gray-500"
                       }`}
-                    ></div>
+                    />
                     {item.status === "available"
                       ? "Tersedia"
                       : item.status === "soldout"

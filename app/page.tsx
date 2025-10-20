@@ -4,7 +4,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion, type Easing, type Variants } from "framer-motion";
-import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
+import {
+  collection,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Product as TProduct, Food as TFood } from "@/lib/types";
 import { FiLogIn, FiUserPlus, FiClock, FiTrendingUp } from "react-icons/fi";
@@ -21,7 +27,11 @@ const containerVariants: Variants = {
 
 const itemVariants: Variants = {
   hidden: { y: 24, opacity: 0 },
-  visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 110, damping: 16 } },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: { type: "spring", stiffness: 110, damping: 16 },
+  },
 };
 
 function Section({
@@ -41,7 +51,9 @@ function Section({
             <Icon size={18} />
           </span>
         )}
-        <h2 className="text-xl sm:text-2xl font-bold text-slate-900">{title}</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+          {title}
+        </h2>
       </div>
       {children}
     </section>
@@ -60,12 +72,17 @@ function Card({
   subtitle?: string;
 }) {
   return (
-    <motion.div variants={itemVariants} whileHover={{ y: -6 }} className="h-full">
+    <motion.div
+      variants={itemVariants}
+      whileHover={{ y: -6 }}
+      className="h-full"
+    >
       {/* Semua card menuju /login */}
       <Link href="/login" className="block h-full">
-        <div className="h-full bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl transition-all">
+        <div className="h-full bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl transition-all group">
           <div className="aspect-[4/3] relative overflow-hidden bg-slate-100">
             {img ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={img}
                 alt={title}
@@ -87,13 +104,24 @@ function Card({
             </span>
           </div>
           <div className="p-4">
-            <h3 className="font-semibold text-slate-900 line-clamp-2">{title}</h3>
-            {subtitle && <div className="mt-1.5 text-blue-700 font-bold">{subtitle}</div>}
+            <h3 className="font-semibold text-slate-900 line-clamp-2">
+              {title}
+            </h3>
+            {subtitle && (
+              <div className="mt-1.5 text-blue-700 font-bold">{subtitle}</div>
+            )}
           </div>
         </div>
       </Link>
     </motion.div>
   );
+}
+
+/** Helper: ambil URL gambar pertama (support string[] atau ImageItem[]) */
+function firstImageUrl(imgs?: any[]): string | undefined {
+  if (!imgs || imgs.length === 0) return undefined;
+  const first = imgs[0];
+  return typeof first === "string" ? first : first?.url;
 }
 
 export default function HomePage() {
@@ -107,11 +135,17 @@ export default function HomePage() {
   useEffect(() => {
     const unsub1 = onSnapshot(
       query(productsRef, orderBy("createdAt", "desc"), limit(8)),
-      (snap) => setLatestProducts(snap.docs.map((d) => ({ id: d.id, ...(d.data() as TProduct) })))
+      (snap) =>
+        setLatestProducts(
+          snap.docs.map((d) => ({ id: d.id, ...(d.data() as TProduct) }))
+        )
     );
     const unsub2 = onSnapshot(
       query(foodsRef, orderBy("createdAt", "desc"), limit(8)),
-      (snap) => setLatestFoods(snap.docs.map((d) => ({ id: d.id, ...(d.data() as TFood) })))
+      (snap) =>
+        setLatestFoods(
+          snap.docs.map((d) => ({ id: d.id, ...(d.data() as TFood) }))
+        )
     );
     const t = setTimeout(() => setLoading(false), 300);
     return () => {
@@ -169,61 +203,74 @@ export default function HomePage() {
       <section className="bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           {/* Produk Terbaru */}
-          <motion.div variants={containerVariants} initial="hidden" animate="visible">
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
             <Section title="Produk Terbaru" icon={FiClock}>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                {loading
-                  ? Array.from({ length: 8 }).map((_, i) => (
-                      <div
-                        key={`pskel-${i}`}
-                        className="h-60 rounded-2xl bg-white/70 backdrop-blur animate-pulse border border-slate-200"
-                      />
-                    ))
-                  : latestProducts.length > 0
-                  ? latestProducts.map((p) => (
-                      <Card
-                        key={p.id}
-                        img={p.images?.[0]}
-                        overline={(p.category || "LAINNYA").toUpperCase()}
-                        title={p.name}
-                        subtitle={`Rp ${Number(p.price || 0).toLocaleString("id-ID")}`}
-                      />
-                    ))
-                  : (
-                    <div className="col-span-full text-center text-slate-500 py-10">
-                      Belum ada produk terbaru.
-                    </div>
-                  )}
+                {loading ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <div
+                      key={`pskel-${i}`}
+                      className="h-60 rounded-2xl bg-white/70 backdrop-blur animate-pulse border border-slate-200"
+                    />
+                  ))
+                ) : latestProducts.length > 0 ? (
+                  latestProducts.map((p) => (
+                    <Card
+                      key={p.id}
+                      img={firstImageUrl(p.images as any)}
+                      overline={(p.category || "LAINNYA").toUpperCase()}
+                      title={p.name}
+                      subtitle={`Rp ${Number(p.price || 0).toLocaleString(
+                        "id-ID"
+                      )}`}
+                    />
+                  ))
+                ) : (
+                  <div className="col-span-full text-center text-slate-500 py-10">
+                    Belum ada produk terbaru.
+                  </div>
+                )}
               </div>
             </Section>
           </motion.div>
 
           {/* Makanan Terbaru */}
-          <motion.div variants={containerVariants} initial="hidden" animate="visible" className="mt-2">
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="mt-2"
+          >
             <Section title="Makanan Terbaru" icon={FiTrendingUp}>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                {loading
-                  ? Array.from({ length: 8 }).map((_, i) => (
-                      <div
-                        key={`fskel-${i}`}
-                        className="h-60 rounded-2xl bg-white/70 backdrop-blur animate-pulse border border-slate-200"
-                      />
-                    ))
-                  : latestFoods.length > 0
-                  ? latestFoods.map((f) => (
-                      <Card
-                        key={f.id}
-                        img={f.images?.[0]}
-                        overline={(f.foodCategory || "LAINNYA").toUpperCase()}
-                        title={f.name}
-                        subtitle={`Rp ${Number(f.price || 0).toLocaleString("id-ID")}`}
-                      />
-                    ))
-                  : (
-                    <div className="col-span-full text-center text-slate-500 py-10">
-                      Belum ada makanan terbaru.
-                    </div>
-                  )}
+                {loading ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <div
+                      key={`fskel-${i}`}
+                      className="h-60 rounded-2xl bg-white/70 backdrop-blur animate-pulse border border-slate-200"
+                    />
+                  ))
+                ) : latestFoods.length > 0 ? (
+                  latestFoods.map((f) => (
+                    <Card
+                      key={f.id}
+                      img={firstImageUrl(f.images as any)}
+                      overline={(f.foodCategory || "LAINNYA").toUpperCase()}
+                      title={f.name}
+                      subtitle={`Rp ${Number(f.price || 0).toLocaleString(
+                        "id-ID"
+                      )}`}
+                    />
+                  ))
+                ) : (
+                  <div className="col-span-full text-center text-slate-500 py-10">
+                    Belum ada makanan terbaru.
+                  </div>
+                )}
               </div>
             </Section>
           </motion.div>

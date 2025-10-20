@@ -1,4 +1,4 @@
-// app/admin/makanan/page.tsx  -- Management Makanan (CRUD, safe Firestore + Cloudinary API)
+// app/admin/makanan/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -13,9 +13,10 @@ import {
   orderBy,
   query,
   updateDoc,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import type { Food } from "@/lib/types";
+import type { Food, ImageItem } from "@/lib/types";
 import CloudinaryUploadApiMulti from "@/components/CloudinaryMultiUpload";
 import { motion } from "framer-motion";
 import {
@@ -55,26 +56,46 @@ function stripUndefined<T>(obj: T): T {
   return obj;
 }
 
-// ---- Default form state ----
-const initialForm: Food = {
-  name: "",
-  foodCategory: "makanan ringan",
-  description: "",
-  price: 0,
-  weightGrams: 0,
-  images: [],
-  links: { whatsapp: "", shopee: "", tokopedia: "", website: "" },
-  status: "available",
-  createdAt: Date.now(),
-  updatedAt: Date.now(),
+// ---- Helper: normalisasi images lama (string[]) → ImageItem[] ----
+function normalizeImages(imgs: any[] | undefined): ImageItem[] {
+  if (!imgs) return [];
+  return imgs.map((it) => (typeof it === "string" ? { url: it } : it));
+}
 
-  // NEW
-  preorder: 0, // 0 = Non-PO
-};
+async function deleteFromCloudinary(publicId?: string) {
+  if (!publicId) return;
+  try {
+    await fetch("/api/cloudinary/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ publicId }),
+    });
+  } catch (e) {
+    console.warn("Gagal hapus Cloudinary:", e);
+  }
+}
+
+// ---- Default form state (pakai fungsi agar timestamp selalu fresh) ----
+function makeInitialForm(): Food {
+  const now = Date.now();
+  return {
+    name: "",
+    foodCategory: "makanan ringan",
+    description: "",
+    price: 0,
+    weightGrams: 0,
+    images: [],
+    links: { whatsapp: "", shopee: "", tokopedia: "", website: "" },
+    status: "available",
+    createdAt: now,
+    updatedAt: now,
+    preorder: 0, // 0 = Non-PO
+  };
+}
 
 export default function MakananAdminPage() {
   const [items, setItems] = useState<(Food & { id: string })[]>([]);
-  const [form, setForm] = useState<Food>(initialForm);
+  const [form, setForm] = useState<Food>(makeInitialForm());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -83,7 +104,14 @@ export default function MakananAdminPage() {
   useEffect(() => {
     const q = query(foodsRef, orderBy("createdAt", "desc"));
     const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Food) }));
+      const data = snap.docs.map((d) => {
+        const raw = d.data() as any;
+        return {
+          id: d.id,
+          ...raw,
+          images: normalizeImages(raw.images),
+        } as Food & { id: string };
+      });
       setItems(data);
       setLoading(false);
     });
@@ -100,17 +128,14 @@ export default function MakananAdminPage() {
 
     const payload = stripUndefined({
       ...form,
-      images: form.images ?? [],
+      images: normalizeImages(form.images),
       foodCategory: form.foodCategory || "makanan ringan",
       status: form.status || "available",
       price: Number.isFinite(form.price) ? form.price : 0,
       weightGrams: Number.isFinite(form.weightGrams ?? 0)
         ? form.weightGrams ?? 0
         : 0,
-
-      // NEW: normalisasi PO
       preorder: (form.preorder ?? 0) as 0 | 3 | 7 | 10,
-
       updatedAt: Date.now(),
       ...(editingId ? {} : { createdAt: Date.now() }),
     });
@@ -122,7 +147,7 @@ export default function MakananAdminPage() {
       } else {
         await addDoc(foodsRef, payload as any);
       }
-      setForm(initialForm);
+      setForm(makeInitialForm());
     } catch (error) {
       console.error("Error saving food:", error);
       alert("Terjadi kesalahan saat menyimpan makanan");
@@ -130,15 +155,46 @@ export default function MakananAdminPage() {
   }
 
   async function onDelete(id: string) {
-    if (!confirm("Apakah Anda yakin ingin menghapus makanan ini?")) return;
-    await deleteDoc(doc(foodsRef, id));
+    if (
+      !confirm(
+        "Apakah Anda yakin ingin menghapus makanan ini beserta semua gambarnya?"
+      )
+    )
+      return;
+
+    try {
+      const ref = doc(foodsRef, id);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) {
+        // sudah tidak ada; sinkronkan UI
+        setItems((prev) => prev.filter((x) => x.id !== id));
+        return;
+      }
+      const data = snap.data() as any;
+      const imgs: ImageItem[] = normalizeImages(data?.images);
+
+      // Hapus semua file di Cloudinary (yang punya publicId)
+      await Promise.all(imgs.map((i) => deleteFromCloudinary(i.publicId)));
+
+      // Baru hapus dokumen
+      await deleteDoc(ref);
+
+      // Jika sedang mengedit item yang dihapus → reset form
+      if (editingId === id) {
+        setEditingId(null);
+        setForm(makeInitialForm());
+      }
+    } catch (err) {
+      console.error("Gagal hapus makanan:", err);
+      alert("Gagal menghapus makanan. Coba lagi.");
+    }
   }
 
   function onEdit(item: Food & { id: string }) {
-    setEditingId(item.id!);
+    setEditingId(item.id);
     setForm({
       ...item,
-      images: item.images ?? [],
+      images: normalizeImages(item.images),
       links: {
         whatsapp: "",
         shopee: "",
@@ -153,15 +209,42 @@ export default function MakananAdminPage() {
       weightGrams: Number.isFinite(item.weightGrams ?? 0)
         ? item.weightGrams ?? 0
         : 0,
-
-      // NEW
       preorder: (item.preorder as 0 | 3 | 7 | 10) ?? 0,
     });
   }
 
   function cancelEdit() {
     setEditingId(null);
-    setForm(initialForm);
+    setForm(makeInitialForm());
+  }
+
+  async function handleRemoveImageAt(index: number) {
+    const imgs = normalizeImages(form.images);
+    const target = imgs[index];
+    if (!target) return;
+
+    const ok = confirm("Hapus gambar ini?");
+    if (!ok) return;
+
+    // 1) Hapus di Cloudinary (jika ada publicId)
+    await deleteFromCloudinary(target.publicId);
+
+    // 2) Hapus dari form state
+    const next = imgs.filter((_, i) => i !== index);
+    setForm((f) => ({ ...f, images: next, updatedAt: Date.now() }));
+
+    // 3) Jika sedang edit dokumen, sekalian simpan ke Firestore
+    if (editingId) {
+      try {
+        await updateDoc(doc(foodsRef, editingId), {
+          images: stripUndefined(next),
+          updatedAt: Date.now(),
+        } as any);
+      } catch (err) {
+        console.error("Gagal update setelah hapus gambar:", err);
+        alert("Gagal menyimpan perubahan setelah hapus gambar.");
+      }
+    }
   }
 
   const fadeIn = {
@@ -404,21 +487,36 @@ export default function MakananAdminPage() {
                     Gambar Makanan
                   </label>
                   <CloudinaryUploadApiMulti
-                    onUploaded={(urls) =>
-                      setForm({ ...form, images: urls ?? [] })
+                    onUploaded={(files) =>
+                      setForm((f) => ({
+                        ...f,
+                        images: normalizeImages([
+                          ...(f.images ?? []),
+                          ...files,
+                        ]),
+                      }))
                     }
                     onUploadingChange={setIsUploading}
                   />
-                  {form.images.length > 0 && (
+                  {normalizeImages(form.images).length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {form.images.map((url, index) => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          key={index}
-                          src={url}
-                          alt={`Preview ${index}`}
-                          className="h-12 w-12 rounded-lg border object-cover"
-                        />
+                      {normalizeImages(form.images).map((img, index) => (
+                        <div key={`${img.url}-${index}`} className="relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={img.url}
+                            alt={`Preview ${index}`}
+                            className="h-16 w-16 rounded-lg border object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImageAt(index)}
+                            className="absolute -right-2 -top-2 rounded-full bg-red-600 p-1 text-white shadow hover:bg-red-700"
+                            title="Hapus gambar"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -508,7 +606,7 @@ export default function MakananAdminPage() {
                 >
                   {isUploading ? (
                     <>
-                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
+                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
                       Mengupload...
                     </>
                   ) : (
@@ -551,12 +649,9 @@ export default function MakananAdminPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Kategori
                     </th>
-
-                    {/* NEW HEADER: Pre-Order */}
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Pre-Order
                     </th>
-
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Harga
                     </th>
@@ -573,35 +668,34 @@ export default function MakananAdminPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
                   {loading ? (
-                    // Skeleton Loaders
                     [1, 2, 3, 4, 5].map((i) => (
                       <tr key={i} className="animate-pulse">
                         <td className="whitespace-nowrap px-6 py-4">
                           <div className="flex items-center">
-                            <div className="h-10 w-10 rounded bg-gray-200"></div>
+                            <div className="h-10 w-10 rounded bg-gray-200" />
                             <div className="ml-3 space-y-2">
-                              <div className="h-4 w-24 rounded bg-gray-200"></div>
-                              <div className="h-3 w-16 rounded bg-gray-200"></div>
+                              <div className="h-4 w-24 rounded bg-gray-200" />
+                              <div className="h-3 w-16 rounded bg-gray-200" />
                             </div>
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="h-4 w-20 rounded bg-gray-200"></div>
+                          <div className="h-4 w-20 rounded bg-gray-200" />
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="h-4 w-20 rounded bg-gray-200"></div>
+                          <div className="h-4 w-20 rounded bg-gray-200" />
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="h-4 w-16 rounded bg-gray-200"></div>
+                          <div className="h-4 w-16 rounded bg-gray-200" />
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="h-4 w-12 rounded bg-gray-200"></div>
+                          <div className="h-4 w-12 rounded bg-gray-200" />
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="h-6 w-16 rounded bg-gray-200"></div>
+                          <div className="h-6 w-16 rounded bg-gray-200" />
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="h-8 w-20 rounded bg-gray-200"></div>
+                          <div className="h-8 w-20 rounded bg-gray-200" />
                         </td>
                       </tr>
                     ))
@@ -627,10 +721,10 @@ export default function MakananAdminPage() {
                       >
                         <td className="whitespace-nowrap px-6 py-4">
                           <div className="flex items-center">
-                            {it.images?.[0] ? (
+                            {it.images?.[0]?.url ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
-                                src={it.images[0]}
+                                src={it.images[0].url}
                                 alt={it.name}
                                 className="h-10 w-10 rounded-lg object-cover"
                               />
@@ -656,8 +750,6 @@ export default function MakananAdminPage() {
                             {it.foodCategory}
                           </span>
                         </td>
-
-                        {/* NEW: Pre-Order badge */}
                         <td className="whitespace-nowrap px-6 py-4">
                           {it.preorder && it.preorder > 0 ? (
                             <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
@@ -669,7 +761,6 @@ export default function MakananAdminPage() {
                             </span>
                           )}
                         </td>
-
                         <td className="whitespace-nowrap px-6 py-4">
                           <div className="text-sm font-medium text-gray-900">
                             Rp {Number(it.price || 0).toLocaleString("id-ID")}

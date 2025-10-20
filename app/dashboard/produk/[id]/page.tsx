@@ -17,6 +17,13 @@ import {
   FiMessageCircle,
   FiGlobe,
 } from "react-icons/fi";
+import type { ImageItem } from "@/lib/types";
+
+/** helper: normalisasi images lama (string[]) → ImageItem[] */
+function normalizeImages(imgs: any[] | undefined): ImageItem[] {
+  if (!imgs) return [];
+  return imgs.map((it) => (typeof it === "string" ? { url: it } : it));
+}
 
 /** === Update Tipe Product: tambahkan sizes & preorder === */
 type Size = "S" | "M" | "L" | "XL" | "XXL";
@@ -25,7 +32,7 @@ type Product = {
   category: string;
   description?: string;
   price: number;
-  images?: string[];
+  images?: ImageItem[];
   links?: {
     whatsapp?: string;
     shopee?: string;
@@ -103,7 +110,12 @@ export default function ProdukDetailPage() {
           setLoading(false);
           return;
         }
-        const data = { id: snap.id, ...(snap.data() as Product) };
+        const raw = snap.data() as any;
+        const data: Product & { id: string } = {
+          id: snap.id,
+          ...raw,
+          images: normalizeImages(raw.images),
+        };
         setItem(data);
 
         // set default size kalau ada
@@ -213,10 +225,10 @@ export default function ProdukDetailPage() {
                 className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100"
               >
                 <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl overflow-hidden mb-4">
-                  {item.images?.[activeImage] ? (
+                  {item.images?.[activeImage]?.url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={item.images[activeImage]}
+                      src={item.images[activeImage].url}
                       alt={item.name}
                       className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                     />
@@ -241,7 +253,7 @@ export default function ProdukDetailPage() {
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={image}
+                          src={image.url}
                           alt={`${item.name} ${index + 1}`}
                           className="w-full h-full object-cover"
                         />

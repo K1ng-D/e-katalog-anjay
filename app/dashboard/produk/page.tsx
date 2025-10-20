@@ -1,29 +1,41 @@
 // app/produk/page.tsx  -- List Produk (login required, filter kategori)
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
-import { ProtectedRoute } from '@/components/ProtectedRoute'
-import UserNavbar from '@/components/UserNavbar'
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import UserNavbar from "@/components/UserNavbar";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
-import { FiSearch, FiFilter, FiShoppingBag } from 'react-icons/fi'
+import { FiSearch, FiFilter, FiShoppingBag } from "react-icons/fi";
+import type { ImageItem } from "@/lib/types";
 
 type Product = {
-  name: string
-  category: string
-  description?: string
-  price: number
-  images?: string[]
-  links?: { whatsapp?: string; shopee?: string; tokopedia?: string; website?: string }
-  stock?: number
-  status?: 'ready' | 'habis' | 'active' | 'draft'
-  createdAt?: number
-  updatedAt?: number
+  name: string;
+  category: string;
+  description?: string;
+  price: number;
+  images?: ImageItem[];
+  links?: {
+    whatsapp?: string;
+    shopee?: string;
+    tokopedia?: string;
+    website?: string;
+  };
+  stock?: number;
+  status?: "ready" | "habis" | "active" | "draft";
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+// --- helper: normalisasi images lama (string[]) → ImageItem[]
+function normalizeImages(imgs: any[] | undefined): ImageItem[] {
+  if (!imgs) return [];
+  return imgs.map((it) => (typeof it === "string" ? { url: it } : it));
 }
 
-// Animation variants (with proper typing)
+// Animation variants
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
@@ -38,7 +50,7 @@ const itemVariants: Variants = {
     y: 0,
     opacity: 1,
     transition: {
-      type: "spring" as const, // <— penting supaya bukan string biasa
+      type: "spring" as const,
       stiffness: 100,
       damping: 15,
     },
@@ -64,7 +76,7 @@ function ProductCardSkeleton() {
         <div className="h-4 bg-gray-200 rounded w-1/2 mt-auto"></div>
       </div>
     </div>
-  )
+  );
 }
 
 // Product Card Component
@@ -78,40 +90,48 @@ function ProductCard({ product }: { product: Product & { id: string } }) {
       <Link href={`/dashboard/produk/${product.id}`}>
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 h-full flex flex-col group">
           <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden">
-            {product.images?.[0] ? (
-              <img 
-                src={product.images[0]} 
-                alt={product.name} 
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                loading="lazy" 
+            {product.images?.[0]?.url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={product.images[0].url}
+                alt={product.name}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                loading="lazy"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                <span className="text-gray-400"><FiShoppingBag size={32} /></span>
+                <span className="text-gray-400">
+                  <FiShoppingBag size={32} />
+                </span>
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            
+
             {product.category && (
               <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium text-gray-700 shadow-sm">
                 {product.category.toUpperCase()}
               </div>
             )}
-            
+
             {product.status && (
-              <div className={`absolute top-3 right-3 text-white px-2 py-1 rounded-full text-xs font-medium ${
-                product.status === 'ready' ? 'bg-green-500' :
-                product.status === 'habis' ? 'bg-red-500' :
-                'bg-gray-500'
-              }`}>
-                {product.status === 'ready' ? 'Tersedia' : 
-                 product.status === 'habis' ? 'Habis' : 
-                 product.status}
+              <div
+                className={`absolute top-3 right-3 text-white px-2 py-1 rounded-full text-xs font-medium ${
+                  product.status === "ready"
+                    ? "bg-green-500"
+                    : product.status === "habis"
+                    ? "bg-red-500"
+                    : "bg-gray-500"
+                }`}
+              >
+                {product.status === "ready"
+                  ? "Tersedia"
+                  : product.status === "habis"
+                  ? "Habis"
+                  : product.status}
               </div>
             )}
-            
-           
           </div>
+
           <div className="p-4 flex flex-col flex-grow">
             <h3 className="font-semibold text-gray-900 line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">
               {product.name}
@@ -123,9 +143,9 @@ function ProductCard({ product }: { product: Product & { id: string } }) {
             )}
             <div className="flex items-center justify-between mt-auto">
               <div className="text-lg font-bold text-blue-700">
-                Rp {Number(product.price || 0).toLocaleString('id-ID')}
+                Rp {Number(product.price || 0).toLocaleString("id-ID")}
               </div>
-              {typeof product.stock === 'number' && (
+              {typeof product.stock === "number" && (
                 <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                   Stok: {product.stock}
                 </div>
@@ -135,60 +155,69 @@ function ProductCard({ product }: { product: Product & { id: string } }) {
         </div>
       </Link>
     </motion.div>
-  )
+  );
 }
 
 export default function ProdukPage() {
-  const productsRef = useMemo(() => collection(db, 'products'), [])
-  const [items, setItems] = useState<(Product & { id: string })[]>([])
-  const [loading, setLoading] = useState(true)
-  const [category, setCategory] = useState<string>('semua')
-  const [search, setSearch] = useState('')
+  const productsRef = useMemo(() => collection(db, "products"), []);
+  const [items, setItems] = useState<(Product & { id: string })[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [category, setCategory] = useState<string>("semua");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
-    const qy = query(productsRef, orderBy('createdAt', 'desc'))
+    const qy = query(productsRef, orderBy("createdAt", "desc"));
     const unsub = onSnapshot(qy, (snap) => {
-      const data = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Product) }))
-      setItems(data)
-      setLoading(false)
-    })
-    return () => unsub()
-  }, [productsRef])
+      const data = snap.docs.map((d) => {
+        const raw = d.data() as any;
+        const normalized: Product = {
+          ...raw,
+          images: normalizeImages(raw.images),
+        };
+        return { id: d.id, ...normalized };
+      });
+      setItems(data);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, [productsRef]);
 
   const allCategories = Array.from(
-    new Set(items.map((i) => (i.category?.trim() || 'lainnya').toLowerCase()))
+    new Set(items.map((i) => (i.category?.trim() || "lainnya").toLowerCase()))
   )
     .filter(Boolean)
-    .sort((a, b) => a.localeCompare(b))
+    .sort((a, b) => a.localeCompare(b));
 
   const filtered = items.filter((it) => {
-    const catOk = category === 'semua' || (it.category || 'lainnya').toLowerCase() === category
-    const q = search.trim().toLowerCase()
+    const catOk =
+      category === "semua" ||
+      (it.category || "lainnya").toLowerCase() === category;
+    const q = search.trim().toLowerCase();
     const qOk =
       !q ||
       it.name?.toLowerCase().includes(q) ||
       it.category?.toLowerCase().includes(q) ||
-      it.description?.toLowerCase().includes(q)
-    return catOk && qOk
-  })
+      it.description?.toLowerCase().includes(q);
+    return catOk && qOk;
+  });
 
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
         <UserNavbar />
-        
+
         {/* Header Section */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center">
-              <motion.h1 
+              <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="text-4xl md:text-5xl font-bold mb-4"
               >
                 Katalog Produk
               </motion.h1>
-              <motion.p 
+              <motion.p
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
@@ -202,7 +231,7 @@ export default function ProdukPage() {
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Filter Section */}
-          <motion.div 
+          <motion.div
             initial="hidden"
             animate="visible"
             variants={fadeIn}
@@ -210,14 +239,20 @@ export default function ProdukPage() {
           >
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">Filter Produk</h2>
-                <p className="text-gray-600">Temukan produk yang sesuai dengan kebutuhan Anda</p>
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                  Filter Produk
+                </h2>
+                <p className="text-gray-600">
+                  Temukan produk yang sesuai dengan kebutuhan Anda
+                </p>
               </div>
-              
+
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-400"><FiSearch size={20} /></span>
+                    <span className="text-gray-400">
+                      <FiSearch size={20} />
+                    </span>
                   </div>
                   <input
                     type="text"
@@ -227,10 +262,12 @@ export default function ProdukPage() {
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
-                
+
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-400"><FiFilter size={20} /></span>
+                    <span className="text-gray-400">
+                      <FiFilter size={20} />
+                    </span>
                   </div>
                   <select
                     className="pl-10 pr-8 py-3 w-full rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
@@ -250,15 +287,19 @@ export default function ProdukPage() {
           </motion.div>
 
           {/* Results Count */}
-          <motion.div 
+          <motion.div
             initial="hidden"
             animate="visible"
             variants={fadeIn}
             className="mb-6"
           >
             <p className="text-gray-600">
-              Menampilkan <span className="font-semibold text-gray-900">{filtered.length}</span> produk
-              {category !== 'semua' && ` dalam kategori "${category}"`}
+              Menampilkan{" "}
+              <span className="font-semibold text-gray-900">
+                {filtered.length}
+              </span>{" "}
+              produk
+              {category !== "semua" && ` dalam kategori "${category}"`}
               {search && ` untuk pencarian "${search}"`}
             </p>
           </motion.div>
@@ -271,24 +312,31 @@ export default function ProdukPage() {
               ))}
             </div>
           ) : filtered.length === 0 ? (
-            <motion.div 
+            <motion.div
               initial="hidden"
               animate="visible"
               variants={fadeIn}
               className="bg-white rounded-2xl shadow-sm p-12 text-center border border-gray-100"
             >
               <div className="text-gray-400 mb-4">
-                <span className="mx-auto"><FiShoppingBag size={48} /></span>
+                <span className="mx-auto">
+                  <FiShoppingBag size={48} />
+                </span>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Tidak ada produk yang ditemukan</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Tidak ada produk yang ditemukan
+              </h3>
               <p className="text-gray-600 mb-6">
-                {search || category !== 'semua' 
-                  ? 'Coba ubah filter pencarian atau kategori untuk melihat lebih banyak hasil.' 
-                  : 'Belum ada produk yang tersedia dalam katalog.'}
+                {search || category !== "semua"
+                  ? "Coba ubah filter pencarian atau kategori untuk melihat lebih banyak hasil."
+                  : "Belum ada produk yang tersedia dalam katalog."}
               </p>
-              {(search || category !== 'semua') && (
-                <button 
-                  onClick={() => { setSearch(''); setCategory('semua'); }}
+              {(search || category !== "semua") && (
+                <button
+                  onClick={() => {
+                    setSearch("");
+                    setCategory("semua");
+                  }}
                   className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-xl transition-colors"
                 >
                   Reset Filter
@@ -314,10 +362,13 @@ export default function ProdukPage() {
         {/* Footer */}
         <footer className="bg-gray-900 text-white py-12 mt-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <p className="text-gray-400">© {new Date().getFullYear()} E-Katalog Produk. All rights reserved.</p>
+            <p className="text-gray-400">
+              © {new Date().getFullYear()} E-Katalog Produk. All rights
+              reserved.
+            </p>
           </div>
         </footer>
       </div>
     </ProtectedRoute>
-  )
+  );
 }

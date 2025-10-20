@@ -13,9 +13,10 @@ import {
   orderBy,
   query,
   updateDoc,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import type { Product, Size, ProductCategory } from "@/lib/types";
+import type { Product, Size, ProductCategory, ImageItem } from "@/lib/types";
 import CloudinaryUploadApiMulti from "@/components/CloudinaryMultiUpload";
 import { motion } from "framer-motion";
 import {
@@ -55,37 +56,64 @@ function stripUndefined<T>(obj: T): T {
   return obj;
 }
 
-const initialForm: Product = {
-  name: "",
-  category: "lainnya",
-  description: "",
-  price: 0,
-  images: [],
-  links: { whatsapp: "", shopee: "", tokopedia: "", website: "" },
-  stock: 0,
-  status: "ready",
-  createdAt: Date.now(),
-  updatedAt: Date.now(),
+/** Kompatibilitas data lama (string[]) → ImageItem[] */
+function normalizeImages(imgs: any[] | undefined): ImageItem[] {
+  if (!imgs) return [];
+  return imgs.map((it) => (typeof it === "string" ? { url: it } : it));
+}
 
-  // NEW
-  sizes: [],
-  preorder: 0,
-};
+/** Hapus file di Cloudinary */
+async function deleteFromCloudinary(publicId?: string) {
+  if (!publicId) return;
+  try {
+    await fetch("/api/cloudinary/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ publicId }),
+    });
+  } catch (e) {
+    console.warn("Gagal hapus Cloudinary:", e);
+  }
+}
+
+function makeInitialForm(): Product {
+  const now = Date.now();
+  return {
+    name: "",
+    category: "lainnya",
+    description: "",
+    price: 0,
+    images: [],
+    links: { whatsapp: "", shopee: "", tokopedia: "", website: "" },
+    stock: 0,
+    status: "ready",
+    createdAt: now,
+    updatedAt: now,
+    // NEW
+    sizes: [],
+    preorder: 0,
+  };
+}
 
 export default function ProdukAdminPage() {
   const [items, setItems] = useState<(Product & { id: string })[]>([]);
-  const [form, setForm] = useState<Product>(initialForm);
+  const [form, setForm] = useState<Product>(makeInitialForm());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
   const productsRef = useMemo(() => collection(db, "products"), []);
 
   useEffect(() => {
     const q = query(productsRef, orderBy("createdAt", "desc"));
     const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as Product),
-      }));
+      const data = snap.docs.map((d) => {
+        const raw = d.data() as any;
+        return {
+          id: d.id,
+          ...raw,
+          images: normalizeImages(raw.images),
+        } as Product & { id: string };
+      });
       setItems(data);
       setLoading(false);
     });
@@ -95,17 +123,20 @@ export default function ProdukAdminPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
 
+    if (isUploading) {
+      alert("Tunggu upload gambar selesai dulu ya.");
+      return;
+    }
+
     const payload = stripUndefined({
       ...form,
-      images: form.images ?? [],
+      images: normalizeImages(form.images),
       category: form.category || "lainnya",
       status: form.status || "ready",
       price: Number.isFinite(form.price) ? form.price : 0,
       stock: Number.isFinite(form.stock ?? 0) ? form.stock ?? 0 : 0,
-      // NEW
       sizes: Array.isArray(form.sizes) ? form.sizes : [],
       preorder: (form.preorder ?? 0) as 0 | 3 | 7 | 10,
-
       updatedAt: Date.now(),
       ...(editingId ? {} : { createdAt: Date.now() }),
     });
@@ -117,7 +148,7 @@ export default function ProdukAdminPage() {
       } else {
         await addDoc(productsRef, payload as any);
       }
-      setForm(initialForm);
+      setForm(makeInitialForm());
     } catch (error) {
       console.error("Error saving product:", error);
       alert("Terjadi kesalahan saat menyimpan produk");
@@ -125,15 +156,45 @@ export default function ProdukAdminPage() {
   }
 
   async function onDelete(id: string) {
-    if (!confirm("Apakah Anda yakin ingin menghapus produk ini?")) return;
-    await deleteDoc(doc(productsRef, id));
+    if (
+      !confirm(
+        "Apakah Anda yakin ingin menghapus produk ini beserta semua gambarnya?"
+      )
+    )
+      return;
+
+    try {
+      const ref = doc(productsRef, id);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) {
+        setItems((prev) => prev.filter((x) => x.id !== id));
+        return;
+      }
+      const data = snap.data() as any;
+      const imgs: ImageItem[] = normalizeImages(data?.images);
+
+      // hapus file Cloudinary yang punya publicId
+      await Promise.all(imgs.map((i) => deleteFromCloudinary(i.publicId)));
+
+      // hapus dokumen
+      await deleteDoc(ref);
+
+      // reset form kalau lagi ngedit item tersebut
+      if (editingId === id) {
+        setEditingId(null);
+        setForm(makeInitialForm());
+      }
+    } catch (err) {
+      console.error("Gagal menghapus produk:", err);
+      alert("Gagal menghapus produk. Coba lagi.");
+    }
   }
 
   function onEdit(item: Product & { id: string }) {
-    setEditingId(item.id!);
+    setEditingId(item.id);
     setForm({
       ...item,
-      images: item.images ?? [],
+      images: normalizeImages(item.images),
       links: {
         whatsapp: "",
         shopee: "",
@@ -143,7 +204,6 @@ export default function ProdukAdminPage() {
       },
       status: (item.status as "ready" | "habis") ?? "ready",
       category: (item.category as ProductCategory) ?? "lainnya",
-      // NEW
       sizes: item.sizes ?? [],
       preorder: (item.preorder as 0 | 3 | 7 | 10) ?? 0,
     });
@@ -151,16 +211,41 @@ export default function ProdukAdminPage() {
 
   function cancelEdit() {
     setEditingId(null);
-    setForm(initialForm);
+    setForm(makeInitialForm());
+  }
+
+  async function handleRemoveImageAt(index: number) {
+    const imgs = normalizeImages(form.images);
+    const target = imgs[index];
+    if (!target) return;
+
+    const ok = confirm("Hapus gambar ini?");
+    if (!ok) return;
+
+    // 1) hapus Cloudinary (jika ada publicId)
+    await deleteFromCloudinary(target.publicId);
+
+    // 2) update state form
+    const next = imgs.filter((_, i) => i !== index);
+    setForm((f) => ({ ...f, images: next, updatedAt: Date.now() }));
+
+    // 3) bila sedang edit, persist ke Firestore
+    if (editingId) {
+      try {
+        await updateDoc(doc(productsRef, editingId), {
+          images: stripUndefined(next),
+          updatedAt: Date.now(),
+        } as any);
+      } catch (err) {
+        console.error("Gagal update setelah hapus gambar:", err);
+        alert("Gagal menyimpan perubahan setelah hapus gambar.");
+      }
+    }
   }
 
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.5 },
-    },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
   };
 
   const categories: { value: ProductCategory; label: string }[] = [
@@ -335,7 +420,7 @@ export default function ProdukAdminPage() {
                     Pilihan Ukuran
                   </label>
                   <div className="grid grid-cols-5 gap-2">
-                    {sizeOptions.map((sz) => {
+                    {(["S", "M", "L", "XL", "XXL"] as Size[]).map((sz) => {
                       const checked = form.sizes?.includes(sz) ?? false;
                       return (
                         <label
@@ -430,20 +515,36 @@ export default function ProdukAdminPage() {
                     Gambar Produk
                   </label>
                   <CloudinaryUploadApiMulti
-                    onUploaded={(urls) =>
-                      setForm({ ...form, images: urls ?? [] })
+                    onUploaded={(files) =>
+                      setForm((f) => ({
+                        ...f,
+                        images: normalizeImages([
+                          ...(f.images ?? []),
+                          ...files,
+                        ]),
+                      }))
                     }
+                    onUploadingChange={setIsUploading}
                   />
-                  {form.images.length > 0 && (
+                  {normalizeImages(form.images).length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {form.images.map((url, index) => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          key={index}
-                          src={url}
-                          alt={`Preview ${index}`}
-                          className="h-12 w-12 rounded-lg border object-cover"
-                        />
+                      {normalizeImages(form.images).map((img, index) => (
+                        <div key={`${img.url}-${index}`} className="relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={img.url}
+                            alt={`Preview ${index}`}
+                            className="h-16 w-16 rounded-lg border object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImageAt(index)}
+                            className="absolute -right-2 -top-2 rounded-full bg-red-600 p-1 text-white shadow hover:bg-red-700"
+                            title="Hapus gambar"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -528,12 +629,22 @@ export default function ProdukAdminPage() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   type="submit"
-                  className="flex w-full items-center justify-center rounded-xl bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700"
+                  disabled={isUploading}
+                  className="flex w-full items-center justify-center rounded-xl bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
                 >
-                  <span className="mr-2 inline-flex">
-                    <FiSave size={16} />
-                  </span>
-                  {editingId ? "Update Produk" : "Tambah Produk"}
+                  {isUploading ? (
+                    <>
+                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
+                      Mengupload...
+                    </>
+                  ) : (
+                    <>
+                      <span className="mr-2 inline-flex">
+                        <FiSave size={16} />
+                      </span>
+                      {editingId ? "Update Produk" : "Tambah Produk"}
+                    </>
+                  )}
                 </motion.button>
               </div>
             </form>
@@ -566,15 +677,12 @@ export default function ProdukAdminPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Kategori
                     </th>
-
-                    {/* NEW HEADERS */}
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Ukuran
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Pre-Order
                     </th>
-
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                       Harga
                     </th>
@@ -595,33 +703,33 @@ export default function ProdukAdminPage() {
                       <tr key={i} className="animate-pulse">
                         <td className="whitespace-nowrap px-6 py-4">
                           <div className="flex items-center">
-                            <div className="h-10 w-10 rounded bg-gray-200"></div>
+                            <div className="h-10 w-10 rounded bg-gray-200" />
                             <div className="ml-3 space-y-2">
-                              <div className="h-4 w-24 rounded bg-gray-200"></div>
-                              <div className="h-3 w-16 rounded bg-gray-200"></div>
+                              <div className="h-4 w-24 rounded bg-gray-200" />
+                              <div className="h-3 w-16 rounded bg-gray-200" />
                             </div>
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="h-4 w-20 rounded bg-gray-200"></div>
+                          <div className="h-4 w-20 rounded bg-gray-200" />
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="h-4 w-20 rounded bg-gray-200"></div>
+                          <div className="h-4 w-20 rounded bg-gray-200" />
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="h-4 w-20 rounded bg-gray-200"></div>
+                          <div className="h-4 w-20 rounded bg-gray-200" />
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="h-4 w-16 rounded bg-gray-200"></div>
+                          <div className="h-4 w-16 rounded bg-gray-200" />
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="h-4 w-12 rounded bg-gray-200"></div>
+                          <div className="h-4 w-12 rounded bg-gray-200" />
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="h-6 w-16 rounded bg-gray-200"></div>
+                          <div className="h-6 w-16 rounded bg-gray-200" />
                         </td>
                         <td className="whitespace-nowrap px-6 py-4">
-                          <div className="h-8 w-20 rounded bg-gray-200"></div>
+                          <div className="h-8 w-20 rounded bg-gray-200" />
                         </td>
                       </tr>
                     ))
@@ -647,10 +755,10 @@ export default function ProdukAdminPage() {
                       >
                         <td className="whitespace-nowrap px-6 py-4">
                           <div className="flex items-center">
-                            {it.images?.[0] ? (
+                            {it.images?.[0]?.url ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
-                                src={it.images[0]}
+                                src={it.images[0].url}
                                 alt={it.name}
                                 className="h-10 w-10 rounded-lg object-cover"
                               />
@@ -676,8 +784,6 @@ export default function ProdukAdminPage() {
                             {it.category}
                           </span>
                         </td>
-
-                        {/* NEW: Ukuran */}
                         <td className="whitespace-nowrap px-6 py-4">
                           {it.sizes && it.sizes.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
@@ -694,8 +800,6 @@ export default function ProdukAdminPage() {
                             <span className="text-xs text-gray-400">-</span>
                           )}
                         </td>
-
-                        {/* NEW: Pre-Order */}
                         <td className="whitespace-nowrap px-6 py-4">
                           {it.preorder && it.preorder > 0 ? (
                             <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
@@ -707,7 +811,6 @@ export default function ProdukAdminPage() {
                             </span>
                           )}
                         </td>
-
                         <td className="whitespace-nowrap px-6 py-4">
                           <div className="text-sm font-medium text-gray-900">
                             Rp {Number(it.price || 0).toLocaleString("id-ID")}

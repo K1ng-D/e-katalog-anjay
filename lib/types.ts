@@ -47,6 +47,12 @@ export type LinkTargets = {
   website?: string;
 };
 
+// NEW: representasi satu gambar (mendukung delete di Cloudinary)
+export type ImageItem = {
+  url: string;
+  publicId?: string; // diperlukan untuk hapus permanen di Cloudinary
+};
+
 export type ProductCategory =
   | "pakaian"
   | "aksesoris"
@@ -56,7 +62,6 @@ export type ProductCategory =
   | "lainnya";
 
 export type ProductStatus = "ready" | "habis";
-
 export type Size = "S" | "M" | "L" | "XL" | "XXL";
 
 export type Product = {
@@ -65,7 +70,7 @@ export type Product = {
   category: ProductCategory;
   description?: string;
   price: number;
-  images: string[]; // simpan URL Cloudinary
+  images: ImageItem[]; // DULU string[] → SEKARANG [{ url, publicId? }]
   links?: LinkTargets;
   stock?: number;
   status?: ProductStatus;
@@ -93,7 +98,7 @@ export type Food = {
   description?: string;
   price: number;
   weightGrams?: number;
-  images: string[]; // URL Cloudinary
+  images: ImageItem[]; // DULU string[] → SEKARANG [{ url, publicId? }]
   links?: LinkTargets;
   status?: FoodStatus;
   createdAt: number; // ms epoch
